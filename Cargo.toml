@@ -1,0 +1,17 @@
+[package]
+name = "leki"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+thiserror = "1"
+shuttle-serenity = "0.27"
+shuttle-runtime = { version = "0.27", default-features = false }
+serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
+shuttle-secrets = "0.27"
+tokio = "1"
+tracing = "0.1"
+chrono = "0.4"
+duration-string="0.3"
+log = "0.4.20"
