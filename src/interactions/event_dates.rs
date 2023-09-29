@@ -4,9 +4,9 @@ use serenity::builder::{CreateComponents, CreateEmbed};
 use serenity::client::Context;
 use serenity::model::application::component::{ActionRow, ButtonStyle};
 use serenity::model::application::component::ActionRowComponent::InputText;
-use serenity::model::channel::{GuildChannel, ReactionType};
-use serenity::model::id::{ChannelId, EmojiId, UserId};
-use serenity::model::mention::Mention;
+use serenity::model::channel::{ReactionType};
+use serenity::model::id::{EmojiId};
+use serenity::model::prelude::{InteractionResponseType, Message};
 use serenity::model::prelude::modal::ModalSubmitInteraction;
 use serenity::utils::Colour;
 use crate::prelude::*;
@@ -14,6 +14,7 @@ use crate::prelude::*;
 pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) -> Result<()> {
     let days_times = get_days_times(&interaction.data.components);
 
+    let mut busy_days = String::from("");
     for (day, time) in days_times {
         let next_date = calculate_next_date(&day)
             .with_hour((&time[..2]).parse::<u32>()?).unwrap()
@@ -22,28 +23,71 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
         let guild = interaction.guild_id.unwrap();
         let guild_channels = guild.channels(&ctx.http).await?;
 
+        let mut posted = false;
         for guild_channel in guild_channels.values() {
             if !guild_channel.name.contains(&day) {
                 continue;
             }
             let messages = guild_channel.messages(&ctx.http, |b| b.limit(2)).await.unwrap();
-            if messages.len() > 1 {
+            if messages.len() >= 1 {
                 continue;
             }
 
-            let data = &interaction.message;
-            tracing::info!("{data:#?}");
-            // guild_channel.send_message(&ctx.http, |m| m
-            //     .set_embed(event_embed(&title, &description, &next_date, duration, &interaction.user.id, &addons, &guides))
-            //     .set_components(event_components())
-            // )
+            if !posted {
+                let data = parse_trial_data(&interaction.message.clone().unwrap())?;
+                guild_channel.send_message(&ctx.http, |m| m
+                    .set_embed(event_embed(&data, &next_date))
+                    .set_components(event_components())
+                ).await?;
+            }
+            posted = true;
+        }
+        if !posted {
+            busy_days = format!("{busy_days}\nEventos del {} ya ocupados", &day);
         }
     }
+
+    interaction.create_interaction_response(&ctx.http, |r| r
+        .kind(InteractionResponseType::UpdateMessage)
+        .interaction_response_data(|d| {
+            if busy_days.is_empty() {
+                d.embed(|e| e.description("Trial creada!"));
+            } else {
+                d.embed(|e| e.description(busy_days));
+            }
+            d.set_components(CreateComponents::default());
+            d.ephemeral(true);
+            d
+        })
+    ).await?;
 
     Ok(())
 }
 
-pub fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String)> {
+#[derive(Debug)]
+struct TrialData {
+    title: String,
+    description: Option<String>,
+    duration: DurationString,
+    leader: String,
+    guides: String,
+    addons: String
+}
+
+fn parse_trial_data(preview: &Message) -> Result<TrialData> {
+    let trial_embed = preview.embeds.first().unwrap();
+    let fields = &trial_embed.fields;
+    Ok(TrialData {
+        title: trial_embed.title.clone().unwrap(),
+        description: trial_embed.description.clone(),
+        duration: fields.get(1).unwrap().value.parse::<DurationString>().map_err(anyhow::Error::msg)?,
+        leader: fields.get(2).unwrap().value.clone(),
+        guides: fields.get(3).unwrap().value.clone(),
+        addons: fields.get(4).unwrap().value.clone(),
+    })
+}
+
+fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String)> {
     components.iter()
         .filter_map(|row| {
             if let InputText(input) = row.components.get(0).unwrap() {
@@ -81,22 +125,19 @@ fn calculate_next_date(day: &str) -> DateTime<FixedOffset> {
 }
 
 fn event_embed(
-    title: &str,
-    description: &str,
+    data: &TrialData,
     timestamp: &DateTime<FixedOffset>,
-    duration: DurationString,
-    leader: &UserId,
-    addons: &str,
-    guides: &str
 ) -> CreateEmbed {
     let mut embed = CreateEmbed::default();
-    embed.title(title);
-    embed.description(description);
+    embed.title(&data.title);
+    if let Some(description) = &data.description {
+        embed.description(description);
+    }
     embed.field(":date: Fecha y Hora:", format!("<t:{}:f>", timestamp.timestamp()), true);
-    embed.field(":hourglass_flowing_sand: Duración", duration, true);
-    embed.field(":crown: Lider", Mention::User(*leader), true);
-    embed.field("Guias:", addons, false);
-    embed.field("AddOns recomendados:", guides, false);
+    embed.field(":hourglass_flowing_sand: Duración", &data.duration, true);
+    embed.field(":crown: Lider", &data.leader, true);
+    embed.field("Guias:", &data.addons, false);
+    embed.field("AddOns recomendados:", &data.guides, false);
     embed.field("", "\u{200b}", false);
     embed.field("", "\u{200b}", false);
     embed.field("<:tank:1154134006036713622> Tanks (1/2)", "└<:necro:1154088177796137030> polerokfi", false);

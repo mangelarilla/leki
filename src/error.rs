@@ -2,7 +2,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
-    Generic(#[from] anyhow::Error),
+    DurationParse(#[from] anyhow::Error),
     #[error(transparent)]
     Serenity(#[from] serenity::prelude::SerenityError),
     #[error(transparent)]

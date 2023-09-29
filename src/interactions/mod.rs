@@ -3,6 +3,8 @@ mod create_trial;
 mod trial_texts;
 mod event_days;
 mod event_dates;
+mod signup;
+mod signup_class;
 
 use serenity::builder::CreateInteractionResponse;
 use serenity::client::Context;
@@ -17,6 +19,15 @@ pub(crate) async fn handle_component(ctx: &Context, interaction: MessageComponen
         "create_event" => create_event::handle(ctx, &interaction).await,
         "event_days" => event_days::handle(ctx, &interaction).await,
         "create_trial" => create_trial::handle(ctx, &interaction).await,
+        "signup_tank" => signup::tank(ctx, &interaction).await,
+        "signup_dd" => signup::dd(ctx, &interaction).await,
+        "signup_healer" => signup::healer(ctx, &interaction).await,
+        "dd_class" => {
+            let reference = interaction.message.message_reference.clone().unwrap();
+            let trial_message = reference.channel_id.message(&ctx.http, reference.message_id.unwrap()).await;
+            tracing::info!("{trial_message:#?}");
+            Ok(())
+        },
         _ => {
             error!("Component interaction '{}' not handled", &interaction.data.custom_id);
             interaction.create_interaction_response(&ctx.http, not_implemented_response).await.unwrap();
@@ -54,6 +65,7 @@ fn error_msg(why: Error) -> &'static str {
     match why {
         Error::Timestamp(_) => "Te has inventado la fecha bro",
         Error::ParseInt(_) => "Te has inventado la hora bro",
+        Error::DurationParse(_) => "Te has inventado la duracion, ejemplos validos: 1h, 2h30m",
         _ => "Wooops"
     }
 }
@@ -69,5 +81,6 @@ fn error_response<'a, 'b>(interaction: &'a mut CreateInteractionResponse<'b>, ms
             .embed(|e| e
                 .description(msg)
             )
+            .ephemeral(true)
         )
 }

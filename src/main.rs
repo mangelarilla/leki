@@ -11,7 +11,7 @@ use serenity::model::prelude::command::Command;
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use shuttle_secrets::SecretStore;
-use tracing::{error, info};
+use tracing::{info};
 
 struct Bot;
 
@@ -19,7 +19,6 @@ struct Bot;
 impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
-
         let command = Command::create_global_application_command(&ctx.http, |command|
             command
                 .name("events")

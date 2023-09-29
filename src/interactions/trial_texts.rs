@@ -10,7 +10,8 @@ use crate::prelude::*;
 
 pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) -> Result<()> {
     let title = get_text(&interaction.data.components, 0);
-    let duration = get_text(&interaction.data.components, 1).parse::<DurationString>().map_err(anyhow::Error::msg)?;
+    let duration = get_text(&interaction.data.components, 1).parse::<DurationString>()
+        .map_err(|e| Error::DurationParse(anyhow::Error::msg(e)))?;
     let description = get_text(&interaction.data.components, 2);
     let addons = get_text(&interaction.data.components, 3);
     let guides = get_text(&interaction.data.components, 4);
