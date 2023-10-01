@@ -6,7 +6,7 @@ mod event_dates;
 mod signup;
 mod signup_class;
 
-use serenity::builder::CreateInteractionResponse;
+use serenity::builder::{CreateInteractionResponse};
 use serenity::client::Context;
 use serenity::model::prelude::{InteractionResponseType};
 use serenity::model::prelude::message_component::MessageComponentInteraction;
@@ -22,12 +22,9 @@ pub(crate) async fn handle_component(ctx: &Context, interaction: MessageComponen
         "signup_tank" => signup::tank(ctx, &interaction).await,
         "signup_dd" => signup::dd(ctx, &interaction).await,
         "signup_healer" => signup::healer(ctx, &interaction).await,
-        "dd_class" => {
-            let reference = interaction.message.message_reference.clone().unwrap();
-            let trial_message = reference.channel_id.message(&ctx.http, reference.message_id.unwrap()).await;
-            tracing::info!("{trial_message:#?}");
-            Ok(())
-        },
+        "healer_class" => signup_class::healer(ctx, &interaction).await,
+        "dd_class" => signup_class::dd(ctx, &interaction).await,
+        "tank_class" => signup_class::tank(ctx, &interaction).await,
         _ => {
             error!("Component interaction '{}' not handled", &interaction.data.custom_id);
             interaction.create_interaction_response(&ctx.http, not_implemented_response).await.unwrap();
