@@ -34,6 +34,8 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
             if !posted {
                 let mut data = parse_trial_data(&interaction.message.clone().unwrap())?;
                 data.datetime = Some(format!("<t:{}:f>", &next_date.timestamp()));
+                // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_tripas".to_string()));
+                // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_mecos".to_string()));
                 guild_channel.send_message(&ctx.http, |m| m
                     .set_embed(event_embed(&data))
                     .set_components(event_components())

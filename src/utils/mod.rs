@@ -50,6 +50,8 @@ pub struct TrialData {
     pub max_tanks: u8,
     pub max_dds: u8,
     pub max_healers: u8,
+    pub reserves: Vec<String>,
+    pub absents: Vec<String>,
 }
 
 pub fn parse_trial_data(preview: &Message) -> Result<TrialData> {
@@ -59,6 +61,8 @@ pub fn parse_trial_data(preview: &Message) -> Result<TrialData> {
     let tanks = fields.get(7).unwrap();
     let dds = fields.get(8).unwrap();
     let healers = fields.get(9).unwrap();
+    let reserves = fields.get(10).unwrap();
+    let absents = fields.get(11).unwrap();
 
     Ok(TrialData {
         title: trial_embed.title.clone().unwrap(),
@@ -74,6 +78,8 @@ pub fn parse_trial_data(preview: &Message) -> Result<TrialData> {
         max_dds: get_max(&dds.name).parse::<u8>()?,
         healers: healers.value.clone().lines().map(|s| parse_player_class(s)).collect(),
         max_healers: get_max(&healers.name).parse::<u8>()?,
+        reserves: reserves.value.clone().lines().map(|s| parse_player(s)).collect(),
+        absents: absents.value.clone().lines().map(|s| parse_player(s)).collect()
     })
 }
 
@@ -84,6 +90,10 @@ fn get_max(text: &str) -> String {
     RE.captures(text).and_then(|cap| {
         cap.name("max").map(|max| max.as_str().to_string())
     }).unwrap()
+}
+
+fn parse_player(text: &str) -> String {
+    text.replace("└", "").trim().to_string()
 }
 
 fn parse_player_class(text: &str) -> (String, String) {
@@ -125,13 +135,40 @@ pub fn event_embed(
         format!("<:healer:1154134924153065544> Healers ({}/{})", &data.healers.len(), &data.max_healers),
         &data.healers.iter().map(|(class, player)| format!("└{class} {player}")).collect::<Vec<String>>().join("\n"),
         false);
-    embed.field(":wave: Reservas (0)", "", false);
-    embed.field(":x: Ausencias (0)", "", false);
+    embed.field(
+        format!(":wave: Reservas ({})", &data.reserves.len()),
+        &data.reserves.iter().map(|player| format!("└ {player}")).collect::<Vec<String>>().join("\n"),
+        false);
+    embed.field(
+        format!(":x: Ausencias ({})", &data.absents.len()),
+        &data.absents.iter().map(|player| format!("└ {player}")).collect::<Vec<String>>().join("\n"),
+        false);
     embed.field("", "\u{200b}", false);
     embed.field("", "[Calendario (.ics)](https://skiny.com)", false);
     embed.thumbnail("https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png");
     embed.timestamp(Timestamp::now());
     embed.color(Colour::from_rgb(0, 255, 0));
-    embed.footer(|f| f.text(format!("Creado por {}", &data.leader)));
     embed
+}
+
+pub fn remove_from_all_roles(data: &mut TrialData, name: &str) {
+    remove_from_role(&mut data.tanks, &name);
+    remove_from_role(&mut data.dds, &name);
+    remove_from_role(&mut data.healers, &name);
+    remove_from_secondary(&mut data.reserves, &name);
+    remove_from_secondary(&mut data.absents, &name);
+}
+
+fn remove_from_role(list: &mut Vec<(String, String)>, user_name: &str) {
+    let index = list.iter().position(|(_, player)| player.as_str() == user_name);
+    if let Some(index) = index {
+        list.remove(index);
+    }
+}
+
+fn remove_from_secondary(list: &mut Vec<String>, user_name: &str) {
+    let index = list.iter().position(|player| player.as_str() == user_name);
+    if let Some(index) = index {
+        list.remove(index);
+    }
 }

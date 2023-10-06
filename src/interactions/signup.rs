@@ -1,25 +1,91 @@
 use serenity::client::Context;
 use serenity::model::channel::ReactionType;
-use serenity::model::prelude::EmojiId;
-use serenity::model::prelude::InteractionResponseType::ChannelMessageWithSource;
+use serenity::model::prelude::{EmojiId, InteractionResponseType};
 use serenity::model::prelude::message_component::MessageComponentInteraction;
 use crate::prelude::*;
 
 pub(crate) async fn dd(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    handle(ctx, interaction, "dd_class").await
+    let handled = handle_if_max(ctx, interaction, |d| &mut d.dds, |d| d.max_dds.into()).await?;
+    if !handled {
+        handle(ctx, interaction, "dd_class").await?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn tank(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    handle(ctx, interaction, "tank_class").await
+    let handled = handle_if_max(ctx, interaction, |d| &mut d.tanks, |d| d.max_tanks.into()).await?;
+    if !handled {
+        handle(ctx, interaction, "tank_class").await?;
+    }
+    Ok(())
 }
 
 pub(crate) async fn healer(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    handle(ctx, interaction, "healer_class").await
+    let handled = handle_if_max(ctx, interaction, |d| &mut d.healers, |d| d.max_healers.into()).await?;
+    if !handled {
+        handle(ctx, interaction, "healer_class").await?;
+    }
+    Ok(())
+}
+
+pub(crate) async fn reserve(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
+    let mut data = parse_trial_data(&interaction.message).unwrap();
+    remove_from_all_roles(&mut data, &interaction.user.name);
+
+    data.reserves.push(interaction.user.name.to_string());
+
+    interaction.create_interaction_response(&ctx.http, |m| m
+        .kind(InteractionResponseType::UpdateMessage)
+        .interaction_response_data(|d| d
+            .set_embed(event_embed(&data))
+        )
+    ).await?;
+    Ok(())
+}
+
+pub(crate) async fn absent(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
+    let mut data = parse_trial_data(&interaction.message).unwrap();
+    remove_from_all_roles(&mut data, &interaction.user.name);
+
+    data.absents.push(interaction.user.name.to_string());
+
+    interaction.create_interaction_response(&ctx.http, |m| m
+        .kind(InteractionResponseType::UpdateMessage)
+        .interaction_response_data(|d| d
+            .set_embed(event_embed(&data))
+        )
+    ).await?;
+    Ok(())
+}
+
+async fn handle_if_max<F, J>(ctx: &Context, interaction: &MessageComponentInteraction, signup_role: F, role_max: J) -> Result<bool>
+    where F: FnOnce(&mut TrialData) -> &mut Vec<(String, String)>,
+          J: FnOnce(&TrialData) -> usize,
+{
+    let mut data = parse_trial_data(&interaction.message).unwrap();
+    remove_from_all_roles(&mut data, &interaction.user.name);
+    let role = signup_role(&mut data);
+    if role.len() == role_max(&data) {
+        data.reserves.push(interaction.user.name.to_string());
+        interaction.create_interaction_response(&ctx.http, |m| m
+            .kind(InteractionResponseType::UpdateMessage)
+            .interaction_response_data(|d| d
+                .set_embed(event_embed(&data))
+            )
+        ).await?;
+        interaction.create_followup_message(&ctx.http, |m| m
+            .ephemeral(true)
+            .embed(|e| e.description("Rol lleno, se te ha movido a reserva!"))
+        ).await?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 async fn handle(ctx: &Context, interaction: &MessageComponentInteraction, custom_id: &str) -> Result<()> {
     interaction.create_interaction_response(&ctx.http, |r| r
-        .kind(ChannelMessageWithSource)
+        .kind(InteractionResponseType::ChannelMessageWithSource)
         .interaction_response_data(|d| d
             .ephemeral(true)
             .components(|c| c.create_action_row(|row| row

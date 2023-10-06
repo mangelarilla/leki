@@ -22,6 +22,8 @@ pub(crate) async fn handle_component(ctx: &Context, interaction: MessageComponen
         "signup_tank" => signup::tank(ctx, &interaction).await,
         "signup_dd" => signup::dd(ctx, &interaction).await,
         "signup_healer" => signup::healer(ctx, &interaction).await,
+        "signup_reserve" => signup::reserve(ctx, &interaction).await,
+        "signup_absent" => signup::absent(ctx, &interaction).await,
         "healer_class" => signup_class::healer(ctx, &interaction).await,
         "dd_class" => signup_class::dd(ctx, &interaction).await,
         "tank_class" => signup_class::tank(ctx, &interaction).await,
@@ -33,7 +35,7 @@ pub(crate) async fn handle_component(ctx: &Context, interaction: MessageComponen
     };
 
     if let Err(why) = result {
-        error!("Error at '{}': {why:?}", &interaction.data.custom_id);
+        error!("Error at '{}': {why:#?}", &interaction.data.custom_id);
         interaction.create_interaction_response(&ctx.http, |r|
             error_response(r, error_msg(why))
         ).await.unwrap();
