@@ -1,12 +1,15 @@
-use chrono::{Datelike, DateTime, Duration, FixedOffset, Timelike, Utc};
+use chrono::{Datelike, DateTime, FixedOffset, Timelike, Utc};
 use serenity::builder::{CreateComponents};
 use serenity::client::Context;
 use serenity::model::application::component::{ActionRow, ButtonStyle};
 use serenity::model::application::component::ActionRowComponent::InputText;
-use serenity::model::channel::{ReactionType};
+use serenity::model::channel::{MessageType, ReactionType};
 use serenity::model::id::{EmojiId};
-use serenity::model::prelude::{InteractionResponseType};
+use serenity::model::mention::Mention;
+use serenity::model::prelude::{InteractionResponseType, Message};
 use serenity::model::prelude::modal::ModalSubmitInteraction;
+use serenity::model::Timestamp;
+use serenity::model::prelude::ScheduledEventType;
 use crate::prelude::*;
 
 pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) -> Result<()> {
@@ -26,19 +29,32 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
             if !guild_channel.name.contains(&day) {
                 continue;
             }
-            let messages = guild_channel.messages(&ctx.http, |b| b.limit(2)).await.unwrap();
-            if messages.len() >= 1 {
+            let messages = guild_channel.messages(&ctx.http, |b| b.limit(10)).await?
+                .into_iter()
+                .filter(|msg| !msg.pinned && msg.kind != MessageType::PinsAdd)
+                .collect::<Vec<Message>>();
+            if messages.len() > 0 {
                 continue;
             }
 
             if !posted {
                 let mut data = parse_trial_data(&interaction.message.clone().unwrap())?;
+                let duration: std::time::Duration = data.duration.into();
+                let end_datetime = next_date + duration;
                 data.datetime = Some(format!("<t:{}:f>", &next_date.timestamp()));
                 // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_tripas".to_string()));
                 // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_mecos".to_string()));
                 guild_channel.send_message(&ctx.http, |m| m
                     .set_embed(event_embed(&data))
                     .set_components(event_components())
+                ).await?;
+                guild.create_scheduled_event(&ctx.http, |e| e
+                    .kind(ScheduledEventType::External)
+                    .name(&data.title)
+                    .description(format!("Apuntaros en {}\n{}", Mention::Channel(guild_channel.id), &data.description.unwrap_or("".to_string())))
+                    .channel_id(guild_channels.values().find(|c| c.name.contains("evento-pve")).unwrap())
+                    .start_time(Timestamp::from_unix_timestamp(next_date.timestamp()).unwrap())
+                    .end_time(Timestamp::from_unix_timestamp(end_datetime.timestamp()).unwrap())
                 ).await?;
             }
             posted = true;
@@ -83,10 +99,12 @@ fn calculate_next_date(day: &str) -> DateTime<FixedOffset> {
     let target_diff_monday = to_weekday(day).unwrap().num_days_from_monday();
     let next_target = if target_diff_monday > now_diff_monday {
         target_diff_monday - now_diff_monday
+    } else if target_diff_monday == now_diff_monday {
+        0
     } else {
         now_diff_monday + target_diff_monday + 1
     };
-    now + Duration::days(next_target.into())
+    now + chrono::Duration::days(next_target.into())
 }
 
 fn event_components() -> CreateComponents {

@@ -147,6 +147,7 @@ pub fn event_embed(
     embed.field("", "[Calendario (.ics)](https://skiny.com)", false);
     embed.thumbnail("https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png");
     embed.timestamp(Timestamp::now());
+    embed.footer(|f| f.text("Ultima modificacion:"));
     embed.color(Colour::from_rgb(0, 255, 0));
     embed
 }
