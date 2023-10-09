@@ -14,7 +14,7 @@ use serenity::model::gateway::Ready;
 use serenity::model::prelude::command::Command;
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use serenity::utils::ScheduledEvent;
+use serenity::model::prelude::ScheduledEvent;
 use tracing::{info};
 use shuttle_secrets::SecretStore;
 
