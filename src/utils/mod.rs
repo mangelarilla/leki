@@ -5,7 +5,7 @@ use regex::Regex;
 use serenity::builder::CreateEmbed;
 use serenity::model::application::component::ActionRowComponent::InputText;
 use serenity::model::prelude::component::ActionRow;
-use serenity::model::prelude::Message;
+use serenity::model::prelude::{Message};
 use serenity::model::Timestamp;
 use serenity::utils::Colour;
 use crate::prelude::*;

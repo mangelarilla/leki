@@ -5,7 +5,6 @@ use serenity::model::application::component::{ActionRow, ButtonStyle};
 use serenity::model::application::component::ActionRowComponent::InputText;
 use serenity::model::channel::{MessageType, ReactionType};
 use serenity::model::id::{EmojiId};
-use serenity::model::mention::Mention;
 use serenity::model::prelude::{InteractionResponseType, Message};
 use serenity::model::prelude::modal::ModalSubmitInteraction;
 use serenity::model::Timestamp;
@@ -42,16 +41,14 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
                 let duration: std::time::Duration = data.duration.into();
                 let end_datetime = next_date + duration;
                 data.datetime = Some(format!("<t:{}:f>", &next_date.timestamp()));
-                // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_tripas".to_string()));
-                // data.tanks.push(("<:dk:1157391862659809280>".to_string(), "el_mecos".to_string()));
-                guild_channel.send_message(&ctx.http, |m| m
+                let msg = guild_channel.send_message(&ctx.http, |m| m
                     .set_embed(event_embed(&data))
                     .set_components(event_components())
                 ).await?;
                 guild.create_scheduled_event(&ctx.http, |e| e
-                    .kind(ScheduledEventType::External)
+                    .kind(ScheduledEventType::Voice)
                     .name(&data.title)
-                    .description(format!("Apuntaros en {}\n{}", Mention::Channel(guild_channel.id), &data.description.unwrap_or("".to_string())))
+                    .description(format!("https://discord.com/channels/{}/{}/{}\n{}", guild, guild_channel.id, msg.id, &data.description.unwrap_or("".to_string())))
                     .channel_id(guild_channels.values().find(|c| c.name.contains("evento-pve")).unwrap())
                     .start_time(Timestamp::from_unix_timestamp(next_date.timestamp()).unwrap())
                     .end_time(Timestamp::from_unix_timestamp(end_datetime.timestamp()).unwrap())

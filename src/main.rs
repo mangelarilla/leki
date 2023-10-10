@@ -4,17 +4,13 @@ mod prelude;
 mod slash_commands;
 mod utils;
 
-use std::thread;
-use std::thread::sleep;
-use std::time::Duration;
 use anyhow::anyhow;
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::command::Command;
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use serenity::model::prelude::ScheduledEvent;
 use tracing::{info};
 use shuttle_secrets::SecretStore;
 
@@ -53,18 +49,6 @@ impl EventHandler for Bot {
                 interactions::handle_modal(&ctx, modal).await;
             }
         }
-    }
-
-    async fn guild_scheduled_event_create(&self, ctx: Context, event: ScheduledEvent) {
-        thread::spawn(move || {
-            let start = Utc.timestamp_opt(event.start_time.unix_timestamp(), 0).unwrap();
-            info!("start: {start:?}");
-            let now = Utc::now();
-            info!("now: {now:?}");
-            let duration_to_start = start.signed_duration_since(now);
-            info!("duration_to_start: {duration_to_start:?}");
-            sleep(Duration::from_secs(duration_to_start.num_seconds() as u64));
-        });
     }
 }
 
