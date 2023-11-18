@@ -4,8 +4,9 @@ mod prelude;
 mod slash_commands;
 mod utils;
 
+use std::fmt::{Debug, Display, Formatter, Pointer};
+use std::sync::Arc;
 use anyhow::anyhow;
-use chrono::{TimeZone};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::prelude::command::Command;
@@ -13,6 +14,8 @@ use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{info};
 use shuttle_secrets::SecretStore;
+use sqlx::PgPool;
+use sqlx::postgres::PgConnectOptions;
 
 struct Bot;
 
@@ -55,6 +58,7 @@ impl EventHandler for Bot {
 #[shuttle_runtime::main]
 async fn serenity(
     #[shuttle_secrets::Secrets] secret_store: SecretStore,
+    #[shuttle_shared_db::Postgres] pool: PgPool
 ) -> shuttle_serenity::ShuttleSerenity {
     // Get the discord token set in `Secrets.toml`
     let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
@@ -62,6 +66,12 @@ async fn serenity(
     } else {
         return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
     };
+
+    sqlx::migrate!().run(&pool).await.expect("Migrations failed :(");
+
+    let options = pool.connect_options().clone();
+    // let mut queue = fang::AsyncQueue::builder()
+    //     .uri()
 
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
