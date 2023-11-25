@@ -3,15 +3,19 @@ mod error;
 mod prelude;
 mod slash_commands;
 mod utils;
+mod tasks;
 
+use std::sync::Arc;
 use anyhow::anyhow;
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
+use serenity::model::id::{ChannelId, GuildId, MessageId};
 use serenity::model::prelude::command::Command;
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{info};
 use shuttle_secrets::SecretStore;
+use crate::utils::{parse_event_link, parse_trial_data};
 
 struct Bot;
 
@@ -28,6 +32,21 @@ impl EventHandler for Bot {
 
         if let Ok(command) = command {
             info!("Command {} registered", &command.name);
+        }
+
+        let ctx = Arc::new(ctx);
+        for guild in &ready.guilds {
+                let events = guild.id.scheduled_events(&ctx.http, false).await.unwrap();
+                for event in events {
+                    if event.creator_id.unwrap() == ready.user.id {
+                        let (guild, channel_id, message) = parse_event_link(&event.description.unwrap());
+                        let channel = GuildId(guild).channels(&ctx.http).await.unwrap();
+                        let message = channel.get(&ChannelId(channel_id)).unwrap()
+                            .message(&ctx.http, MessageId(message)).await.unwrap();
+                        let data = parse_trial_data(&message).unwrap();
+                        tasks::set_reminders(&data, ctx.clone());
+                    }
+                }
         }
     }
 

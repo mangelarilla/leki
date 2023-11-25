@@ -1,4 +1,4 @@
-use chrono::{Datelike, DateTime, FixedOffset, Timelike, Utc};
+use chrono::{Datelike, DateTime, Timelike, Utc};
 use serenity::builder::{CreateComponents};
 use serenity::client::Context;
 use serenity::model::application::component::{ActionRow, ButtonStyle};
@@ -17,7 +17,8 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
     let mut busy_days = String::from("");
     for (day, time) in days_times {
         let next_date = calculate_next_date(&day)
-            .with_hour((&time[..2]).parse::<u32>()?).unwrap()
+            // hack for spanish timezone
+            .with_hour((&time[..2]).parse::<u32>()? - 1).unwrap()
             .with_minute((&time[3..]).parse::<u32>()?).unwrap();
 
         let guild = interaction.guild_id.unwrap();
@@ -40,7 +41,7 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
                 let mut data = parse_trial_data(&interaction.message.clone().unwrap())?;
                 let duration: std::time::Duration = data.duration.into();
                 let end_datetime = next_date + duration;
-                data.datetime = Some(format!("<t:{}:f>", &next_date.timestamp()));
+                data.datetime = Some(next_date.clone());
                 let msg = guild_channel.send_message(&ctx.http, |m| m
                     .set_embed(event_embed(&data))
                     .set_components(event_components())
@@ -89,8 +90,8 @@ fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String)> {
         }).collect()
 }
 
-fn calculate_next_date(day: &str) -> DateTime<FixedOffset> {
-    let now = Utc::now().with_timezone(&FixedOffset::east_opt(2 * 3600).unwrap());
+fn calculate_next_date(day: &str) -> DateTime<Utc> {
+    let now = Utc::now();
     let now_diff_monday = now.weekday().num_days_from_monday();
 
     let target_diff_monday = to_weekday(day).unwrap().num_days_from_monday();

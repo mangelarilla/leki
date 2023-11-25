@@ -1,5 +1,6 @@
 use serenity::client::Context;
 use serenity::model::channel::ReactionType;
+use serenity::model::id::UserId;
 use serenity::model::prelude::{EmojiId, InteractionResponseType};
 use serenity::model::prelude::message_component::MessageComponentInteraction;
 use crate::prelude::*;
@@ -30,9 +31,9 @@ pub(crate) async fn healer(ctx: &Context, interaction: &MessageComponentInteract
 
 pub(crate) async fn reserve(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
     let mut data = parse_trial_data(&interaction.message).unwrap();
-    remove_from_all_roles(&mut data, &interaction.user.name);
-
-    data.reserves.push(interaction.user.name.to_string());
+    remove_from_all_roles(&mut data, interaction.user.id);
+    crate::tasks::unset_reminder(&interaction.user.id);
+    data.reserves.push(interaction.user.id);
 
     interaction.create_interaction_response(&ctx.http, |m| m
         .kind(InteractionResponseType::UpdateMessage)
@@ -45,9 +46,9 @@ pub(crate) async fn reserve(ctx: &Context, interaction: &MessageComponentInterac
 
 pub(crate) async fn absent(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
     let mut data = parse_trial_data(&interaction.message).unwrap();
-    remove_from_all_roles(&mut data, &interaction.user.name);
-
-    data.absents.push(interaction.user.name.to_string());
+    remove_from_all_roles(&mut data, interaction.user.id);
+    crate::tasks::unset_reminder(&interaction.user.id);
+    data.absents.push(interaction.user.id);
 
     interaction.create_interaction_response(&ctx.http, |m| m
         .kind(InteractionResponseType::UpdateMessage)
@@ -59,14 +60,14 @@ pub(crate) async fn absent(ctx: &Context, interaction: &MessageComponentInteract
 }
 
 async fn handle_if_max<F, J>(ctx: &Context, interaction: &MessageComponentInteraction, signup_role: F, role_max: J) -> Result<bool>
-    where F: FnOnce(&mut TrialData) -> &mut Vec<(String, String)>,
+    where F: FnOnce(&mut TrialData) -> &mut Vec<(String, UserId)>,
           J: FnOnce(&TrialData) -> usize,
 {
     let mut data = parse_trial_data(&interaction.message).unwrap();
-    remove_from_all_roles(&mut data, &interaction.user.name);
+    remove_from_all_roles(&mut data, interaction.user.id);
     let role = signup_role(&mut data);
     if role.len() == role_max(&data) {
-        data.reserves.push(interaction.user.name.to_string());
+        data.reserves.push(interaction.user.id);
         interaction.create_interaction_response(&ctx.http, |m| m
             .kind(InteractionResponseType::UpdateMessage)
             .interaction_response_data(|d| d

@@ -1,9 +1,10 @@
-use chrono::{Weekday};
+use chrono::{DateTime, Utc, Weekday};
 use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::builder::CreateEmbed;
 use serenity::model::application::component::ActionRowComponent::InputText;
+use serenity::model::id::UserId;
 use serenity::model::prelude::component::ActionRow;
 use serenity::model::prelude::{Message};
 use serenity::model::Timestamp;
@@ -39,25 +40,28 @@ pub fn to_weekday(day: &str) -> Option<Weekday> {
 pub struct TrialData {
     pub title: String,
     pub description: Option<String>,
-    pub datetime: Option<String>,
+    pub datetime: Option<DateTime<Utc>>,
     pub duration: DurationString,
     pub leader: String,
     pub guides: String,
     pub addons: String,
-    pub tanks: Vec<(String, String)>,
-    pub dds: Vec<(String, String)>,
-    pub healers: Vec<(String, String)>,
+    pub tanks: Vec<(String, UserId)>,
+    pub dds: Vec<(String, UserId)>,
+    pub healers: Vec<(String, UserId)>,
     pub max_tanks: u8,
     pub max_dds: u8,
     pub max_healers: u8,
-    pub reserves: Vec<String>,
-    pub absents: Vec<String>,
+    pub reserves: Vec<UserId>,
+    pub absents: Vec<UserId>,
 }
 
 pub fn parse_trial_data(preview: &Message) -> Result<TrialData> {
     let trial_embed = preview.embeds.first().unwrap();
     let fields = &trial_embed.fields;
-    let datetime = fields.get(0).unwrap().value.clone();
+    let datetime = fields.get(0).unwrap().value.clone()
+        .replace("<t:", "")
+        .replace(":f>", "")
+        .parse::<i64>().ok();
     let tanks = fields.get(7).unwrap();
     let dds = fields.get(8).unwrap();
     let healers = fields.get(9).unwrap();
@@ -67,7 +71,7 @@ pub fn parse_trial_data(preview: &Message) -> Result<TrialData> {
     Ok(TrialData {
         title: trial_embed.title.clone().unwrap(),
         description: trial_embed.description.clone(),
-        datetime: if datetime.is_empty() {None} else {Some(datetime)},
+        datetime: datetime.map(|dt| DateTime::from_timestamp(dt, 0).unwrap()),
         duration: fields.get(1).unwrap().value.parse::<DurationString>().map_err(anyhow::Error::msg)?,
         leader: fields.get(2).unwrap().value.clone(),
         guides: fields.get(3).unwrap().value.clone(),
@@ -92,17 +96,35 @@ fn get_max(text: &str) -> String {
     }).unwrap()
 }
 
-fn parse_player(text: &str) -> String {
-    text.replace("└", "").trim().to_string()
+fn parse_player(text: &str) -> UserId {
+    let id = text.replace("└", "")
+        .replace("<@", "")
+        .replace(">", "")
+        .trim()
+        .parse::<u64>();
+
+    UserId(id.unwrap())
 }
 
-fn parse_player_class(text: &str) -> (String, String) {
+fn parse_player_class(text: &str) -> (String, UserId) {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^└(?P<class><:.+>)\s(?P<player>.+)").unwrap();
+        static ref RE: Regex = Regex::new(r"^└(?P<class><:.+>)\s<@(?P<player>\d+)>").unwrap();
     }
     RE.captures(text).and_then(|cap| Option::from({
         (cap.name("class").map(|max| max.as_str().to_string()).unwrap(),
-         cap.name("player").map(|max| max.as_str().to_string()).unwrap())
+         cap.name("player").map(|max| UserId(max.as_str().parse::<u64>().unwrap())).unwrap())
+    })).unwrap()
+}
+
+pub fn parse_event_link(text: &str) -> (u64, u64, u64) {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^https:\/\/discord\.com\/channels\/(?P<guild>\d+)\/(?P<channel>\d+)\/(?P<msg>\d+)$").unwrap();
+    }
+    RE.captures(text.lines().next().unwrap()).and_then(|cap| Option::from({
+        (cap.name("guild").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
+         cap.name("channel").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
+         cap.name("msg").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap()
+        )
     })).unwrap()
 }
 
@@ -114,7 +136,9 @@ pub fn event_embed(
     if let Some(description) = &data.description {
         embed.description(description);
     }
-    embed.field(":date: Fecha y Hora:", &data.datetime.clone().unwrap_or("".to_string()), true);
+    embed.field(":date: Fecha y Hora:", if let Some(datetime) = data.datetime.clone() {
+        format!("<t:{}:f>", datetime.timestamp())
+    } else {"".to_string()}, true);
     embed.field(":hourglass_flowing_sand: Duración", &data.duration, true);
     embed.field(":crown: Lider", &data.leader, true);
     embed.field("Guias:", &data.addons, false);
@@ -123,25 +147,25 @@ pub fn event_embed(
     embed.field("", "\u{200b}", false);
     embed.field(
         format!("<:tank:1154134006036713622> Tanks ({}/{})", &data.tanks.len(), &data.max_tanks),
-        &data.tanks.iter().map(|(class, player)| format!("└{class} {player}")).collect::<Vec<String>>().join("\n"),
+        &data.tanks.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
         false
     );
     embed.field(
         format!("<:dd:1154134731756150974> DD ({}/{})", &data.dds.len(), &data.max_dds),
-        &data.dds.iter().map(|(class, player)| format!("└{class} {player}")).collect::<Vec<String>>().join("\n"),
+        &data.dds.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
         false
     );
     embed.field(
         format!("<:healer:1154134924153065544> Healers ({}/{})", &data.healers.len(), &data.max_healers),
-        &data.healers.iter().map(|(class, player)| format!("└{class} {player}")).collect::<Vec<String>>().join("\n"),
+        &data.healers.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
         false);
     embed.field(
         format!(":wave: Reservas ({})", &data.reserves.len()),
-        &data.reserves.iter().map(|player| format!("└ {player}")).collect::<Vec<String>>().join("\n"),
+        &data.reserves.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
         false);
     embed.field(
         format!(":x: Ausencias ({})", &data.absents.len()),
-        &data.absents.iter().map(|player| format!("└ {player}")).collect::<Vec<String>>().join("\n"),
+        &data.absents.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
         false);
     embed.field("", "\u{200b}", false);
     embed.field("", "[Calendario (.ics)](https://skiny.com)", false);
@@ -152,23 +176,23 @@ pub fn event_embed(
     embed
 }
 
-pub fn remove_from_all_roles(data: &mut TrialData, name: &str) {
-    remove_from_role(&mut data.tanks, &name);
-    remove_from_role(&mut data.dds, &name);
-    remove_from_role(&mut data.healers, &name);
-    remove_from_secondary(&mut data.reserves, &name);
-    remove_from_secondary(&mut data.absents, &name);
+pub fn remove_from_all_roles(data: &mut TrialData, user: UserId) {
+    remove_from_role(&mut data.tanks, user);
+    remove_from_role(&mut data.dds, user);
+    remove_from_role(&mut data.healers, user);
+    remove_from_secondary(&mut data.reserves, user);
+    remove_from_secondary(&mut data.absents, user);
 }
 
-fn remove_from_role(list: &mut Vec<(String, String)>, user_name: &str) {
-    let index = list.iter().position(|(_, player)| player.as_str() == user_name);
+fn remove_from_role(list: &mut Vec<(String, UserId)>, user: UserId) {
+    let index = list.iter().position(|(_, player)| *player == user);
     if let Some(index) = index {
         list.remove(index);
     }
 }
 
-fn remove_from_secondary(list: &mut Vec<String>, user_name: &str) {
-    let index = list.iter().position(|player| player.as_str() == user_name);
+fn remove_from_secondary(list: &mut Vec<UserId>, user: UserId) {
+    let index = list.iter().position(|player| *player == user);
     if let Some(index) = index {
         list.remove(index);
     }
