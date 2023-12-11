@@ -4,7 +4,7 @@ use crate::prelude::*;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-pub(crate) async fn handle(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
+pub(crate) async fn handle(ctx: &Context, interaction: &CommandInteraction) -> Result<()> {
 
     let response = CreateInteractionResponseMessage::new()
         .embed(CreateEmbed::new().title("Nuevo evento").description("Elige tipo de evento"))

@@ -4,7 +4,7 @@ use crate::prelude::*;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
 
-pub(crate) async fn handle(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
+pub(crate) async fn handle(ctx: &Context, interaction: &CommandInteraction) -> Result<()> {
 
     let events = interaction.guild_id.unwrap()
         .scheduled_events(&ctx.http, false).await?;

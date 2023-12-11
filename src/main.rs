@@ -1,19 +1,18 @@
 mod interactions;
 mod error;
 mod prelude;
-mod slash_commands;
 mod utils;
 mod tasks;
 
 use std::sync::Arc;
 use anyhow::anyhow;
-use serenity::all::{Command, CreateCommand};
+use serenity::all::{Command, CommandType, CreateCommand};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use tracing::{info};
+use tracing::{error, info};
 use shuttle_secrets::SecretStore;
 use crate::utils::{parse_event_link, parse_trial_data};
 
@@ -24,14 +23,18 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
 
-        let command = Command::create_global_command(&ctx.http, CreateCommand::new("events")
+        register_command(&ctx.http, CreateCommand::new("events")
             .description("Event management")
             .description_localized("es-ES", "Gestión de eventos")
         ).await;
-
-        if let Ok(command) = command {
-            info!("Command {} registered", &command.name);
-        }
+        register_command(&ctx.http, CreateCommand::new("Edit event")
+            .name_localized("es-ES","Editar evento")
+            .kind(CommandType::Message)
+        ).await;
+        register_command(&ctx.http, CreateCommand::new("Delete event")
+            .name_localized("es-ES","Eliminar evento")
+            .kind(CommandType::Message)
+        ).await;
 
         let ctx = Arc::new(ctx);
         for guild in &ready.guilds {
@@ -53,7 +56,7 @@ impl EventHandler for Bot {
         match interaction {
             Interaction::Command(command) => {
                 info!("Received command interaction: {}", &command.data.name);
-                slash_commands::events::handle(&ctx, command).await;
+                interactions::handle_commands(&ctx, command).await;
             }
             Interaction::Component(component) => {
                 info!("Received component interaction: {}", &component.data.custom_id);
@@ -65,6 +68,15 @@ impl EventHandler for Bot {
             }
             _ => {}
         }
+    }
+}
+
+async fn register_command(http: impl CacheHttp, builder: CreateCommand) {
+    let command = Command::create_global_command(http, builder).await;
+
+    match command {
+        Ok(command) => info!("Command '{}' registered", &command.name),
+        Err(error) => error!("Error registering command: {}",  error)
     }
 }
 
