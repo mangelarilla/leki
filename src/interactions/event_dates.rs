@@ -1,17 +1,14 @@
 use chrono::{Datelike, DateTime, Timelike, Utc};
-use serenity::builder::{CreateComponents};
+use serenity::all::{ActionRow, ButtonStyle, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, GetMessages, Message, ModalInteraction};
+use serenity::all::ActionRowComponent::InputText;
 use serenity::client::Context;
-use serenity::model::application::component::{ActionRow, ButtonStyle};
-use serenity::model::application::component::ActionRowComponent::InputText;
 use serenity::model::channel::{MessageType, ReactionType};
 use serenity::model::id::{EmojiId};
-use serenity::model::prelude::{InteractionResponseType, Message};
-use serenity::model::prelude::modal::ModalSubmitInteraction;
 use serenity::model::Timestamp;
 use serenity::model::prelude::ScheduledEventType;
 use crate::prelude::*;
 
-pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) -> Result<()> {
+pub(crate) async fn handle(ctx: &Context, interaction: &ModalInteraction) -> Result<()> {
     let days_times = get_days_times(&interaction.data.components);
 
     let mut busy_days = String::from("");
@@ -26,10 +23,12 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
 
         let mut posted = false;
         for guild_channel in guild_channels.values() {
-            if !guild_channel.name.contains(&day) {
+            let channel_no_accents = unidecode::unidecode(guild_channel.name());
+            tracing::info!("Unidecoded: {}", channel_no_accents);
+            if !channel_no_accents.contains(&day) {
                 continue;
             }
-            let messages = guild_channel.messages(&ctx.http, |b| b.limit(10)).await?
+            let messages = guild_channel.messages(&ctx.http, GetMessages::new().limit(10)).await?
                 .into_iter()
                 .filter(|msg| !msg.pinned && msg.kind != MessageType::PinsAdd)
                 .collect::<Vec<Message>>();
@@ -42,16 +41,13 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
                 let duration: std::time::Duration = data.duration.into();
                 let end_datetime = next_date + duration;
                 data.datetime = Some(next_date.clone());
-                let msg = guild_channel.send_message(&ctx.http, |m| m
-                    .set_embed(event_embed(&data))
-                    .set_components(event_components())
+                let msg = guild_channel.send_message(&ctx.http, CreateMessage::new()
+                    .embed(event_embed(&data))
+                    .components(event_components())
                 ).await?;
-                guild.create_scheduled_event(&ctx.http, |e| e
-                    .kind(ScheduledEventType::Voice)
-                    .name(&data.title)
+                guild.create_scheduled_event(&ctx.http, CreateScheduledEvent::new(ScheduledEventType::Voice, &data.title, Timestamp::from_unix_timestamp(next_date.timestamp()).unwrap())
                     .description(format!("https://discord.com/channels/{}/{}/{}\n{}", guild, guild_channel.id, msg.id, &data.description.unwrap_or("".to_string())))
                     .channel_id(guild_channels.values().find(|c| c.name.contains("evento-pve")).unwrap())
-                    .start_time(Timestamp::from_unix_timestamp(next_date.timestamp()).unwrap())
                     .end_time(Timestamp::from_unix_timestamp(end_datetime.timestamp()).unwrap())
                 ).await?;
             }
@@ -62,19 +58,12 @@ pub(crate) async fn handle(ctx: &Context, interaction: &ModalSubmitInteraction) 
         }
     }
 
-    interaction.create_interaction_response(&ctx.http, |r| r
-        .kind(InteractionResponseType::UpdateMessage)
-        .interaction_response_data(|d| {
-            if busy_days.is_empty() {
-                d.embed(|e| e.description("Trial creada!"));
-            } else {
-                d.embed(|e| e.description(busy_days));
-            }
-            d.set_components(CreateComponents::default());
-            d.ephemeral(true);
-            d
-        })
-    ).await?;
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
+            .embed(CreateEmbed::new().description(if busy_days.is_empty() {"Trial creada!"} else {busy_days.as_str()}))
+            .components(vec![])
+            .ephemeral(true)
+    )).await?;
 
     Ok(())
 }
@@ -83,7 +72,7 @@ fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String)> {
     components.iter()
         .filter_map(|row| {
             if let InputText(input) = row.components.get(0).unwrap() {
-                Some((input.custom_id.trim().to_string(), input.value.trim().to_string()))
+                Some((input.custom_id.trim().to_string(), input.value.as_ref().unwrap_or(&"".to_string()).trim().to_string()))
             } else {
                 None
             }
@@ -105,41 +94,32 @@ fn calculate_next_date(day: &str) -> DateTime<Utc> {
     now + chrono::Duration::days(next_target.into())
 }
 
-fn event_components() -> CreateComponents {
-    let mut components = CreateComponents::default();
-    components.create_action_row(|ar| ar
-        .create_button(|b| b
-            .custom_id("signup_tank")
+fn event_components() -> Vec<CreateActionRow> {
+    let class_row = CreateActionRow::Buttons(vec![
+        CreateButton::new("signup_tank")
             .label("Tank")
             .style(ButtonStyle::Success)
-            .emoji(ReactionType::Custom { animated: false, id: EmojiId(1154134006036713622), name: Some("tank".to_string())})
-        )
-        .create_button(|b| b
-            .custom_id("signup_dd")
+            .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134006036713622), name: Some("tank".to_string())}),
+        CreateButton::new("signup_dd")
             .label("DD")
             .style(ButtonStyle::Success)
-            .emoji(ReactionType::Custom { animated: false, id: EmojiId(1154134731756150974), name: Some("dd".to_string())})
-        )
-        .create_button(|b| b
-            .custom_id("signup_healer")
+            .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())}),
+        CreateButton::new("signup_healer")
             .label("Healer")
             .style(ButtonStyle::Success)
-            .emoji(ReactionType::Custom { animated: false, id: EmojiId(1154134924153065544), name: Some("healer".to_string())})
-        )
-    );
-    components.create_action_row(|ar| ar
-        .create_button(|b| b
-            .custom_id("signup_reserve")
+            .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134924153065544), name: Some("healer".to_string())})
+    ]);
+
+    let backup_row = CreateActionRow::Buttons(vec![
+        CreateButton::new("signup_reserve")
             .label("Reserva")
             .style(ButtonStyle::Secondary)
-            .emoji(ReactionType::Unicode("👋".to_string()))
-        )
-        .create_button(|b| b
-            .custom_id("signup_absent")
+            .emoji(ReactionType::Unicode("👋".to_string())),
+        CreateButton::new("signup_absent")
             .label("Ausencia")
             .style(ButtonStyle::Secondary)
             .emoji(ReactionType::Unicode("❌".to_string()))
-        )
-    );
-    components
+    ]);
+
+    vec![class_row, backup_row]
 }

@@ -1,11 +1,11 @@
+use serenity::all::{ComponentInteraction, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseFollowup, CreateInteractionResponseMessage, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId};
+use serenity::builder::CreateSelectMenu;
 use serenity::client::Context;
 use serenity::model::channel::ReactionType;
 use serenity::model::id::UserId;
-use serenity::model::prelude::{EmojiId, InteractionResponseType};
-use serenity::model::prelude::message_component::MessageComponentInteraction;
 use crate::prelude::*;
 
-pub(crate) async fn dd(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
+pub(crate) async fn dd(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
     let handled = handle_if_max(ctx, interaction, |d| &mut d.dds, |d| d.max_dds.into()).await?;
     if !handled {
         handle(ctx, interaction, "dd_class").await?;
@@ -13,7 +13,7 @@ pub(crate) async fn dd(ctx: &Context, interaction: &MessageComponentInteraction)
     Ok(())
 }
 
-pub(crate) async fn tank(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
+pub(crate) async fn tank(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
     let handled = handle_if_max(ctx, interaction, |d| &mut d.tanks, |d| d.max_tanks.into()).await?;
     if !handled {
         handle(ctx, interaction, "tank_class").await?;
@@ -21,7 +21,7 @@ pub(crate) async fn tank(ctx: &Context, interaction: &MessageComponentInteractio
     Ok(())
 }
 
-pub(crate) async fn healer(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
+pub(crate) async fn healer(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
     let handled = handle_if_max(ctx, interaction, |d| &mut d.healers, |d| d.max_healers.into()).await?;
     if !handled {
         handle(ctx, interaction, "healer_class").await?;
@@ -29,37 +29,33 @@ pub(crate) async fn healer(ctx: &Context, interaction: &MessageComponentInteract
     Ok(())
 }
 
-pub(crate) async fn reserve(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    let mut data = parse_trial_data(&interaction.message).unwrap();
+pub(crate) async fn reserve(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
+    let mut data = parse_trial_data(&interaction.message)?;
     remove_from_all_roles(&mut data, interaction.user.id);
     crate::tasks::unset_reminder(&interaction.user.id);
     data.reserves.push(interaction.user.id);
 
-    interaction.create_interaction_response(&ctx.http, |m| m
-        .kind(InteractionResponseType::UpdateMessage)
-        .interaction_response_data(|d| d
-            .set_embed(event_embed(&data))
-        )
-    ).await?;
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
+            .embed(event_embed(&data))
+    )).await?;
     Ok(())
 }
 
-pub(crate) async fn absent(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    let mut data = parse_trial_data(&interaction.message).unwrap();
+pub(crate) async fn absent(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
+    let mut data = parse_trial_data(&interaction.message)?;
     remove_from_all_roles(&mut data, interaction.user.id);
     crate::tasks::unset_reminder(&interaction.user.id);
     data.absents.push(interaction.user.id);
 
-    interaction.create_interaction_response(&ctx.http, |m| m
-        .kind(InteractionResponseType::UpdateMessage)
-        .interaction_response_data(|d| d
-            .set_embed(event_embed(&data))
-        )
-    ).await?;
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
+            .embed(event_embed(&data))
+    )).await?;
     Ok(())
 }
 
-async fn handle_if_max<F, J>(ctx: &Context, interaction: &MessageComponentInteraction, signup_role: F, role_max: J) -> Result<bool>
+async fn handle_if_max<F, J>(ctx: &Context, interaction: &ComponentInteraction, signup_role: F, role_max: J) -> Result<bool>
     where F: FnOnce(&mut TrialData) -> &mut Vec<(String, UserId)>,
           J: FnOnce(&TrialData) -> usize,
 {
@@ -68,15 +64,13 @@ async fn handle_if_max<F, J>(ctx: &Context, interaction: &MessageComponentIntera
     let role = signup_role(&mut data);
     if role.len() == role_max(&data) {
         data.reserves.push(interaction.user.id);
-        interaction.create_interaction_response(&ctx.http, |m| m
-            .kind(InteractionResponseType::UpdateMessage)
-            .interaction_response_data(|d| d
-                .set_embed(event_embed(&data))
-            )
-        ).await?;
-        interaction.create_followup_message(&ctx.http, |m| m
+        interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+            CreateInteractionResponseMessage::new()
+                .embed(event_embed(&data))
+        )).await?;
+        interaction.create_followup(&ctx.http, CreateInteractionResponseFollowup::new()
             .ephemeral(true)
-            .embed(|e| e.description("Rol lleno, se te ha movido a reserva!"))
+            .embed(CreateEmbed::new().description("Rol lleno, se te ha movido a reserva!"))
         ).await?;
         Ok(true)
     } else {
@@ -84,49 +78,38 @@ async fn handle_if_max<F, J>(ctx: &Context, interaction: &MessageComponentIntera
     }
 }
 
-async fn handle(ctx: &Context, interaction: &MessageComponentInteraction, custom_id: &str) -> Result<()> {
-    interaction.create_interaction_response(&ctx.http, |r| r
-        .kind(InteractionResponseType::ChannelMessageWithSource)
-        .interaction_response_data(|d| d
+async fn handle(ctx: &Context, interaction: &ComponentInteraction, custom_id: &str) -> Result<()> {
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .components(|c| c.create_action_row(|row| row
-                .create_select_menu(|m| m
-                    .custom_id(custom_id)
-                    .max_values(1)
-                    .placeholder("Selecciona clase")
-                    .options(|opt| opt
-                        .create_option(|opt| opt
-                            .label("Necro").description("Nigromante").value("<:necro:1154088177796137030>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1154088177796137030), name: Some("necro".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Warden").description("Custodio").value("<:warden:1154134387546398720>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1154134387546398720), name: Some("warden".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Dragonknight").description("Caballero dragon").value("<:dk:1157391862659809280>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1157391862659809280), name: Some("dk".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Sorc").description("Brujo").value("<:sorc:1157391866971566100>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1157391866971566100), name: Some("sorc".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Nightblade").description("Hoja de la noche").value("<:nb:1157391864954093608>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1157391864954093608), name: Some("nb".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Templar").description("Templario").value("<:templar:1157391868850618388>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1157391868850618388), name: Some("templar".to_string())})
-                        )
-                        .create_option(|opt| opt
-                            .label("Arcanist").description("Arcanista").value("<:arcanist:1154134563392606218>")
-                            .emoji(ReactionType::Custom {animated: false, id: EmojiId(1154134563392606218), name: Some("arcanist".to_string())})
-                        )
-                    )
-                )
-            ))
-        )
-    ).await?;
+            .components(vec![
+                CreateActionRow::SelectMenu(CreateSelectMenu::new(custom_id, CreateSelectMenuKind::String {
+                    options: vec![
+                        CreateSelectMenuOption::new("Necro", "<:necro:1154088177796137030>")
+                            .description("Nigromante")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154088177796137030), name: Some("necro".to_string())}),
+                        CreateSelectMenuOption::new("Warden", "<:warden:1154134387546398720>")
+                            .description("Custodio")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154134387546398720), name: Some("warden".to_string())}),
+                        CreateSelectMenuOption::new("Dragonknight", "<:dk:1157391862659809280>")
+                            .description("Caballero dragon")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391862659809280), name: Some("dk".to_string())}),
+                        CreateSelectMenuOption::new("Sorc", "<:sorc:1157391866971566100>")
+                            .description("Brujo")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391866971566100), name: Some("sorc".to_string())}),
+                        CreateSelectMenuOption::new("Nightblade", "<:nb:1157391864954093608>")
+                            .description("Hoja de la noche")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391864954093608), name: Some("nb".to_string())}),
+                        CreateSelectMenuOption::new("Templar", "<:templar:1157391868850618388>")
+                            .description("Templario")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391868850618388), name: Some("templar".to_string())}),
+                        CreateSelectMenuOption::new("Arcanist", "<:arcanist:1154134563392606218>")
+                            .description("Arcanista")
+                            .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154134563392606218), name: Some("arcanist".to_string())})
+
+                    ]
+                }).max_values(1).placeholder("Selecciona clase"))
+            ])
+    )).await?;
     Ok(())
 }

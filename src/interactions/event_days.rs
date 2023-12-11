@@ -1,41 +1,18 @@
 use chrono::{Weekday};
+use serenity::all::{ComponentInteraction, ComponentInteractionDataKind, CreateActionRow, CreateInputText, CreateInteractionResponse, CreateModal, InputTextStyle};
 use serenity::client::Context;
-use serenity::model::application::component::InputTextStyle;
-use serenity::model::prelude::InteractionResponseType;
-use serenity::model::prelude::message_component::MessageComponentInteraction;
 use crate::prelude::*;
 
-pub(crate) async fn handle(ctx: &Context, interaction: &MessageComponentInteraction) -> Result<()> {
-    interaction.create_interaction_response(&ctx.http, |r| r
-        .kind(InteractionResponseType::Modal)
-        .interaction_response_data(|d| d
-            .custom_id("event_dates")
-            .title("Horas del evento")
-            .components(|c| {
-                for day in &interaction.data.values {
-                    let localized = match day.parse::<Weekday>().unwrap() {
-                        Weekday::Mon => "lunes",
-                        Weekday::Tue => "martes",
-                        Weekday::Wed => "miercoles",
-                        Weekday::Thu => "jueves",
-                        Weekday::Fri => "viernes",
-                        Weekday::Sat => "sabado",
-                        Weekday::Sun => "domingo"
-                    };
-                    c.create_action_row(|r| r
-                        .create_input_text(|i| i
-                            .custom_id(localized)
-                            .placeholder("18:00")
-                            .label(localized)
-                            .style(InputTextStyle::Short)
-                            .required(true)
-                        )
-                    );
-                }
-                c
-            })
-        )
-    ).await?;
-
+pub(crate) async fn handle(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
+    if let ComponentInteractionDataKind::StringSelect { values } = &interaction.data.kind {
+        let response = CreateModal::new("event_dates", "Horas del evento")
+            .components(values.into_iter().map(|day| {
+                let localized = to_weekday_localized(&day.parse::<Weekday>().unwrap());
+                CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, &localized, &localized)
+                    .placeholder("18:00")
+                    .required(true))
+            }).collect());
+        interaction.create_response(&ctx.http, CreateInteractionResponse::Modal(response)).await?;
+    }
     Ok(())
 }

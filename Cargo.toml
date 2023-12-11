@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-shuttle-secrets = "0.34.0"
-shuttle-serenity = "0.34.0"
-shuttle-runtime = "0.34.0"
+shuttle-secrets = "0.35"
+shuttle-serenity = { version = "0.35", default-features = false, features = ["serenity-0-12-rustls_backend"] }
+shuttle-runtime = "0.35"
 anyhow = "1.0.75"
 thiserror = "1.0.50"
-serenity = { version = "0.11", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
+serenity = { version = "0.12.0", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
 tokio = "1.34.0"
 tracing = "0.1.40"
 chrono = "0.4.31"
@@ -17,3 +17,4 @@ duration-string="0.3"
 log = "0.4.20"
 regex = "1.10"
 lazy_static = "1"
+unidecode = "0.3.0"

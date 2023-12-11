@@ -2,13 +2,12 @@ use chrono::{DateTime, Utc, Weekday};
 use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
+use serenity::all::ActionRowComponent::InputText;
+use serenity::all::{ActionRow, Colour, CreateEmbedFooter};
 use serenity::builder::CreateEmbed;
-use serenity::model::application::component::ActionRowComponent::InputText;
 use serenity::model::id::UserId;
-use serenity::model::prelude::component::ActionRow;
 use serenity::model::prelude::{Message};
 use serenity::model::Timestamp;
-use serenity::utils::Colour;
 use crate::prelude::*;
 
 pub fn get_text(components: &Vec<ActionRow>, idx: usize) -> String {
@@ -17,7 +16,7 @@ pub fn get_text(components: &Vec<ActionRow>, idx: usize) -> String {
         .flatten().unwrap();
 
     if let InputText(input) = input_text {
-        input.value.to_string()
+        input.value.as_ref().unwrap_or(&"".to_string()).to_string()
     } else {
         String::new()
     }
@@ -34,6 +33,18 @@ pub fn to_weekday(day: &str) -> Option<Weekday> {
         "domingo" => Some(Weekday::Sun),
         _ => None
     }
+}
+
+pub fn to_weekday_localized(day: &Weekday) -> String {
+    match day {
+        Weekday::Mon => "lunes",
+        Weekday::Tue => "martes",
+        Weekday::Wed => "miercoles",
+        Weekday::Thu => "jueves",
+        Weekday::Fri => "viernes",
+        Weekday::Sat => "sabado",
+        Weekday::Sun => "domingo",
+    }.to_string()
 }
 
 #[derive(Debug)]
@@ -103,7 +114,7 @@ fn parse_player(text: &str) -> UserId {
         .trim()
         .parse::<u64>();
 
-    UserId(id.unwrap())
+    UserId::new(id.unwrap())
 }
 
 fn parse_player_class(text: &str) -> (String, UserId) {
@@ -112,7 +123,7 @@ fn parse_player_class(text: &str) -> (String, UserId) {
     }
     RE.captures(text).and_then(|cap| Option::from({
         (cap.name("class").map(|max| max.as_str().to_string()).unwrap(),
-         cap.name("player").map(|max| UserId(max.as_str().parse::<u64>().unwrap())).unwrap())
+         cap.name("player").map(|max| UserId::new(max.as_str().parse::<u64>().unwrap())).unwrap())
     })).unwrap()
 }
 
@@ -120,6 +131,7 @@ pub fn parse_event_link(text: &str) -> (u64, u64, u64) {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^https:\/\/discord\.com\/channels\/(?P<guild>\d+)\/(?P<channel>\d+)\/(?P<msg>\d+)$").unwrap();
     }
+    tracing::info!("Link: {}", text);
     RE.captures(text.lines().next().unwrap()).and_then(|cap| Option::from({
         (cap.name("guild").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
          cap.name("channel").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
@@ -131,49 +143,44 @@ pub fn parse_event_link(text: &str) -> (u64, u64, u64) {
 pub fn event_embed(
     data: &TrialData,
 ) -> CreateEmbed {
-    let mut embed = CreateEmbed::default();
-    embed.title(&data.title);
-    if let Some(description) = &data.description {
-        embed.description(description);
-    }
-    embed.field(":date: Fecha y Hora:", if let Some(datetime) = data.datetime.clone() {
-        format!("<t:{}:f>", datetime.timestamp())
-    } else {"".to_string()}, true);
-    embed.field(":hourglass_flowing_sand: Duración", &data.duration, true);
-    embed.field(":crown: Lider", &data.leader, true);
-    embed.field("Guias:", &data.addons, false);
-    embed.field("AddOns recomendados:", &data.guides, false);
-    embed.field("", "\u{200b}", false);
-    embed.field("", "\u{200b}", false);
-    embed.field(
-        format!("<:tank:1154134006036713622> Tanks ({}/{})", &data.tanks.len(), &data.max_tanks),
-        &data.tanks.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
-        false
-    );
-    embed.field(
-        format!("<:dd:1154134731756150974> DD ({}/{})", &data.dds.len(), &data.max_dds),
-        &data.dds.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
-        false
-    );
-    embed.field(
-        format!("<:healer:1154134924153065544> Healers ({}/{})", &data.healers.len(), &data.max_healers),
-        &data.healers.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
-        false);
-    embed.field(
-        format!(":wave: Reservas ({})", &data.reserves.len()),
-        &data.reserves.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
-        false);
-    embed.field(
-        format!(":x: Ausencias ({})", &data.absents.len()),
-        &data.absents.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
-        false);
-    embed.field("", "\u{200b}", false);
-    embed.field("", "[Calendario (.ics)](https://skiny.com)", false);
-    embed.thumbnail("https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png");
-    embed.timestamp(Timestamp::now());
-    embed.footer(|f| f.text("Ultima modificacion:"));
-    embed.color(Colour::from_rgb(0, 255, 0));
-    embed
+    CreateEmbed::new()
+        .title(&data.title)
+        .description(if let Some(description) = &data.description {description.as_str()} else {""})
+        .field(":date: Fecha y Hora:", if let Some(datetime) = data.datetime.clone() {
+            format!("<t:{}:f>", datetime.timestamp())
+        } else {"".to_string()}, true)
+        .field(":hourglass_flowing_sand: Duración", &data.duration.to_string(), true)
+        .field(":crown: Lider", &data.leader, true)
+        .field("Guias:", &data.addons, false)
+        .field("AddOns recomendados:", &data.guides, false)
+        .field("", "\u{200b}", false)
+        .field("", "\u{200b}", false)
+        .field(
+            format!("<:tank:1154134006036713622> Tanks ({}/{})", &data.tanks.len(), &data.max_tanks),
+            &data.tanks.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
+            false)
+        .field(
+            format!("<:dd:1154134731756150974> DD ({}/{})", &data.dds.len(), &data.max_dds),
+            &data.dds.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
+            false)
+        .field(
+            format!("<:healer:1154134924153065544> Healers ({}/{})", &data.healers.len(), &data.max_healers),
+            &data.healers.iter().map(|(class, player)| format!("└{class} <@{player}>")).collect::<Vec<String>>().join("\n"),
+            false)
+        .field(
+            format!(":wave: Reservas ({})", &data.reserves.len()),
+            &data.reserves.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
+            false)
+        .field(
+            format!(":x: Ausencias ({})", &data.absents.len()),
+            &data.absents.iter().map(|player| format!("└ <@{player}>")).collect::<Vec<String>>().join("\n"),
+            false)
+        .field("", "\u{200b}", false)
+        .field("", "[Calendario (.ics)](https://skiny.com)", false)
+        .thumbnail("https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png")
+        .timestamp(Timestamp::now())
+        .footer(CreateEmbedFooter::new("Ultima modificacion:"))
+        .color(Colour::from_rgb(0, 255, 0))
 }
 
 pub fn remove_from_all_roles(data: &mut TrialData, user: UserId) {

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
 use lazy_static::lazy_static;
+use serenity::all::CreateMessage;
 use serenity::client::Context;
 use serenity::model::id::UserId;
 use tokio::task::JoinHandle;
@@ -32,7 +33,7 @@ pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, user: UserId) {
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;
             let dm = user.create_dm_channel(&ctx.http).await.unwrap();
-            dm.send_message(&ctx.http, |m| m.content("30 minutos para iniciar el evento!"))
+            dm.send_message(&ctx.http, CreateMessage::new().content("30 minutos para iniciar el evento!"))
                 .await.unwrap();
         }
     });
