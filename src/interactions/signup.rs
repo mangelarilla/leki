@@ -3,6 +3,7 @@ use serenity::builder::CreateSelectMenu;
 use serenity::client::Context;
 use serenity::model::channel::ReactionType;
 use serenity::model::id::UserId;
+use crate::events::trials::models::{parse_trial_data, TrialData};
 use crate::prelude::*;
 
 pub(crate) async fn dd(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {

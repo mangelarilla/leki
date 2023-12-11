@@ -6,6 +6,7 @@ use serenity::model::channel::{MessageType, ReactionType};
 use serenity::model::id::{EmojiId};
 use serenity::model::Timestamp;
 use serenity::model::prelude::ScheduledEventType;
+use crate::events::trials::models::parse_trial_data;
 use crate::prelude::*;
 
 pub(crate) async fn handle(ctx: &Context, interaction: &ModalInteraction) -> Result<()> {

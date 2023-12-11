@@ -3,8 +3,10 @@ use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateSelectMenu
 use crate::prelude::*;
 use serenity::model::prelude::*;
 use serenity::prelude::*;
-
+#[allow(unreachable_code, unused_variables)]
 pub(crate) async fn handle(ctx: &Context, interaction: &CommandInteraction) -> Result<()> {
+
+    todo!("rework this, can be used only on event messages");
 
     let events = interaction.guild_id.unwrap()
         .scheduled_events(&ctx.http, false).await?;

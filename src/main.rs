@@ -3,6 +3,7 @@ mod error;
 mod prelude;
 mod utils;
 mod tasks;
+pub mod events;
 
 use std::sync::Arc;
 use anyhow::anyhow;
@@ -14,7 +15,8 @@ use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
-use crate::utils::{parse_event_link, parse_trial_data};
+use crate::events::trials::models::parse_trial_data;
+use crate::utils::{parse_event_link};
 
 struct Bot;
 

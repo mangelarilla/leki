@@ -6,6 +6,7 @@ use serenity::all::CreateMessage;
 use serenity::client::Context;
 use serenity::model::id::UserId;
 use tokio::task::JoinHandle;
+use events::trials::models::TrialData;
 use crate::prelude::*;
 
 lazy_static! {

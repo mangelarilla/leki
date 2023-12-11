@@ -3,6 +3,7 @@ use serenity::all::{ComponentInteraction, ComponentInteractionDataKind, CreateIn
 use serenity::builder::CreateEmbed;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
+use crate::events::trials::models::{parse_trial_data, TrialData};
 use crate::prelude::*;
 
 pub(crate) async fn dd(ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
