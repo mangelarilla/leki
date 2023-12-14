@@ -15,7 +15,8 @@ use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
-use crate::events::trials::models::parse_trial_data;
+use crate::events::models::EventBasicData;
+use crate::events::parse::ParseEventData;
 use crate::utils::{parse_event_link};
 
 struct Bot;
@@ -47,8 +48,8 @@ impl EventHandler for Bot {
                         let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
                         let message = channel.get(&ChannelId::new(channel_id)).unwrap()
                             .message(&ctx.http, MessageId::new(message)).await.unwrap();
-                        let data = parse_trial_data(&message).unwrap();
-                        tasks::set_reminders(&data, ctx.clone());
+                        let event = message.parse_event().unwrap();
+                        tasks::set_reminder(event.datetime().unwrap(), ctx.clone(), ChannelId::new(channel_id), message.id);
                     }
                 }
         }
