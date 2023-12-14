@@ -4,6 +4,8 @@ use serenity::all::{CreateActionRow, UserId};
 use serenity::builder::CreateEmbed;
 use crate::events::generic::{event_components, event_embed};
 use crate::events::generic::models::EventGenericData;
+use crate::events::pvp::models::PvPData;
+use crate::events::pvp::{pvp_components, pvp_embed};
 use crate::events::trials::models::TrialData;
 use crate::events::trials::{trial_components, trial_embed};
 
@@ -21,27 +23,30 @@ pub trait EventSignups {
 }
 
 pub enum EventKind {
-    Trial(TrialData), Generic(EventGenericData)
+    Trial(TrialData), Generic(EventGenericData), PvP(PvPData)
 }
 
 impl EventKind {
     pub fn get_embed(&self) -> CreateEmbed {
         match self {
             EventKind::Trial(t) => trial_embed(t),
-            EventKind::Generic(g) => event_embed(g)
+            EventKind::Generic(g) => event_embed(g),
+            EventKind::PvP(p) => pvp_embed(p)
         }
     }
     pub fn get_components(&self) -> Vec<CreateActionRow> {
         match self {
             EventKind::Trial(_) => trial_components(),
-            EventKind::Generic(_) => event_components("signup_event")
+            EventKind::Generic(_) => event_components("signup_event"),
+            EventKind::PvP(_) => pvp_components()
         }
     }
 
     pub fn set_datetime(&mut self, dt: DateTime<Utc>) {
         match self {
             EventKind::Trial(t) => t.datetime = Some(dt),
-            EventKind::Generic(g) => g.datetime = Some(dt)
+            EventKind::Generic(g) => g.datetime = Some(dt),
+            EventKind::PvP(p) => p.datetime = Some(dt)
         }
     }
 }
@@ -50,13 +55,15 @@ impl EventSignups for EventKind {
     fn signups(&self) -> Vec<UserId> {
         match self {
             EventKind::Trial(trial) => trial.signups(),
-            EventKind::Generic(g) => g.signups()
+            EventKind::Generic(g) => g.signups(),
+            EventKind::PvP(p) => p.signups()
         }
     }
     fn remove_signup(&mut self, user: UserId) {
         match self {
             EventKind::Trial(trial) => trial.remove_signup(user),
-            EventKind::Generic(g) => g.remove_signup(user)
+            EventKind::Generic(g) => g.remove_signup(user),
+            EventKind::PvP(p) => p.remove_signup(user),
         }
     }
 }
@@ -65,31 +72,36 @@ impl EventBasicData for EventKind {
     fn title(&self) -> String {
         match self {
             EventKind::Trial(t) => t.title(),
-            EventKind::Generic(g) => g.title()
+            EventKind::Generic(g) => g.title(),
+            EventKind::PvP(p) => p.title(),
         }
     }
     fn description(&self) -> Option<String> {
         match self {
             EventKind::Trial(t) => t.description(),
-            EventKind::Generic(g) => g.description()
+            EventKind::Generic(g) => g.description(),
+            EventKind::PvP(p) => p.description(),
         }
     }
     fn datetime(&self) -> Option<DateTime<Utc>> {
         match self {
             EventKind::Trial(t) => t.datetime(),
-            EventKind::Generic(g) => g.datetime()
+            EventKind::Generic(g) => g.datetime(),
+            EventKind::PvP(p) => p.datetime(),
         }
     }
     fn duration(&self) -> DurationString {
         match self {
             EventKind::Trial(t) => t.duration(),
-            EventKind::Generic(g) => g.duration()
+            EventKind::Generic(g) => g.duration(),
+            EventKind::PvP(p) => p.duration(),
         }
     }
     fn leader(&self) -> String {
         match self {
             EventKind::Trial(t) => t.leader(),
-            EventKind::Generic(g) => g.leader()
+            EventKind::Generic(g) => g.leader(),
+            EventKind::PvP(p) => p.leader(),
         }
     }
 }

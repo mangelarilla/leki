@@ -1,10 +1,10 @@
 use serenity::all::{UserId};
 use crate::events::models::{EventSignups, remove_from_role};
+use crate::events::pvp::models::PvPData;
+use crate::events::pvp::PvPRole;
 use crate::events::signup::{EventBackupRoles, EventSignupRoles, signups_no_class};
-use crate::events::trials::models::TrialData;
-use crate::events::trials::TrialRole;
 
-impl EventBackupRoles for TrialData {
+impl EventBackupRoles for PvPData {
     fn reserves(&self) -> Vec<UserId> {self.reserves.clone()}
     fn absents(&self) -> Vec<UserId> {self.absents.clone()}
     fn add_absent(&mut self, user: UserId) {
@@ -17,41 +17,46 @@ impl EventBackupRoles for TrialData {
     }
 }
 
-impl EventSignups for TrialData {
+impl EventSignups for PvPData {
     fn signups(&self) -> Vec<UserId> {
         let mut tanks = signups_no_class(&self.tanks);
-        let mut dds = signups_no_class(&self.dds);
+        let mut brawlers = signups_no_class(&self.brawlers);
         let mut healers = signups_no_class(&self.healers);
+        let mut bombers = signups_no_class(&self.bombers);
 
-        tanks.append(&mut dds);
+        tanks.append(&mut brawlers);
         tanks.append(&mut healers);
+        tanks.append(&mut bombers);
         tanks
     }
 
     fn remove_signup(&mut self, user: UserId) {
         remove_from_role(&mut signups_no_class(&self.tanks), user);
-        remove_from_role(&mut signups_no_class(&self.dds), user);
+        remove_from_role(&mut signups_no_class(&self.brawlers), user);
         remove_from_role(&mut signups_no_class(&self.healers), user);
+        remove_from_role(&mut signups_no_class(&self.bombers), user);
         remove_from_role(&mut self.reserves, user);
         remove_from_role(&mut self.absents, user);
     }
 }
 
-impl EventSignupRoles<TrialRole> for TrialData {
-    fn is_role_full(&self, role: TrialRole) -> bool {
+impl EventSignupRoles<PvPRole> for PvPData {
+    fn is_role_full(&self, role: PvPRole) -> bool {
         match role {
-            TrialRole::Tank => self.max_tanks == self.tanks.len(),
-            TrialRole::DD => self.max_dds == self.dds.len(),
-            TrialRole::Healer => self.max_healers == self.healers.len()
+            PvPRole::Tank => self.max_tanks == self.tanks.len(),
+            PvPRole::Healer => self.max_healers == self.healers.len(),
+            _ => false,
         }
     }
 
-    fn signup(&mut self, role: TrialRole, user: UserId, class: String) {
+    fn signup(&mut self, role: PvPRole, user: UserId, class: String) {
         self.remove_signup(user);
         match role {
-            TrialRole::Tank => self.tanks.push((class, user)),
-            TrialRole::DD => self.dds.push((class, user)),
-            TrialRole::Healer => self.healers.push((class, user)),
+            PvPRole::Tank => self.tanks.push((class, user)),
+            PvPRole::Healer => self.healers.push((class, user)),
+            PvPRole::Brawler => self.brawlers.push((class, user)),
+            PvPRole::Bomber => self.bombers.push((class, user)),
         }
     }
 }
+

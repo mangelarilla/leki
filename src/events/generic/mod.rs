@@ -12,7 +12,7 @@ pub fn event_embed(
         .field("", "\u{200b}", false)
         .field("", "\u{200b}", false)
         .field(
-            format!("Apuntados ({}/12)", &data.signed.len()),
+            format!("Apuntados ({})", &data.signed.len()),
             &data.signed.iter().map(|player| format!("└<@{player}>")).collect::<Vec<String>>().join("\n"),
             false);
     event_embed_backup(data, embed)
