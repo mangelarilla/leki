@@ -50,7 +50,7 @@ impl EventHandler for Bot {
                         let message = channel.get(&ChannelId::new(channel_id)).unwrap()
                             .message(&ctx.http, MessageId::new(message)).await.unwrap();
                         let event = message.parse_event().unwrap();
-                        tasks::set_reminder(event.datetime().unwrap(), ctx.clone(), ChannelId::new(channel_id), message.id);
+                        tasks::set_reminder(event.datetime().unwrap(), ctx.clone(), ChannelId::new(channel_id), message.id, GuildId::new(guild));
                     }
                 }
         }

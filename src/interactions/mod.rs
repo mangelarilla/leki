@@ -1,7 +1,7 @@
 mod update_event;
 
 use chrono::{DateTime, Utc};
-use serenity::all::{ChannelId, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
+use serenity::all::{ChannelId, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, CreateAttachment, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
 use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseFollowup, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, EditMessage, GetMessages};
 use serenity::client::Context;
 use serenity::model::Timestamp;
@@ -266,8 +266,40 @@ async fn create_discord_event(guild: GuildId, ctx: &Context, data: &impl EventBa
             if is_pvp {1144350647848812564} else {1144350408769286274}
         })
         .end_time(Timestamp::from_unix_timestamp(end_datetime.timestamp()).unwrap())
+        .image(&CreateAttachment::url(&ctx.http, &guess_image(data.title(), is_pvp)).await.unwrap())
     ).await?;
     Ok(())
+}
+
+fn guess_image(title: String, is_pvp: bool) -> String {
+    let title = unidecode::unidecode(&title.to_lowercase());
+    if is_pvp {
+        "https://dottzgaming.com/wp-content/uploads/2019/03/pvp-header-eso-1.jpg".to_string()
+    } else if title.contains("aa") || title.contains("aetherian") || title.contains("aeterico") {
+        "https://images.uesp.net/thumb/f/fc/ON-load-Aetherian_Archive.jpg/1200px-ON-load-Aetherian_Archive.jpg".to_string()
+    } else if title.contains("as") || title.contains("asylum") || title.contains("amparo") {
+        "https://eso-hub.com/storage/headers/asylum-sanctorium-trial-e-s-o-header-yyye8-n.jpg".to_string()
+    } else if title.contains("hrc") || title.contains("hel ra") || title.contains("helra") {
+        "https://eso-hub.com/storage/headers/hel-ra-citadel-trial-e-s-o-header--f-kt-c3e.jpg".to_string()
+    } else if title.contains("so") || title.contains("ophidia") || title.contains("sanctum") {
+        "https://i.redd.it/nh0o94messq71.png".to_string()
+    } else if title.contains("dsr") || title.contains("dreadsail") || title.contains("arrecife") {
+        "https://eso-hub.com/storage/headers/dreadsail-reef-header-e-s-o-header--v1-u-s-t5.jpg".to_string()
+    } else if title.contains("ss") || title.contains("sunspire") || title.contains("sol") {
+        "https://www.universoeso.com.br/wp-content/uploads/2021/03/vssssssssssss.jpg".to_string()
+    } else if title.contains("mol") || title.contains("maw") || title.contains("lorkhaj") {
+        "https://esosslfiles-a.akamaihd.net/cms/2016/03/a2295f32b46ac88aed5edb06c1f94fc1.jpg".to_string()
+    } else if title.contains("cr") || title.contains("cloudrest") || title.contains("nubelia") {
+        "https://esosslfiles-a.akamaihd.net/cms/2018/05/85480dd6e0cdf59a1326c3fa188ec3fc.jpg".to_string()
+    } else if title.contains("se") || title.contains("sanity") || title.contains("locura") {
+        "https://esosslfiles-a.akamaihd.net/ape/uploads/2023/05/5ece21494783d382a25baf809807957d.jpg".to_string()
+    } else if title.contains("hof") || title.contains("fabrication") || title.contains("fabricacion") {
+        "https://images.uesp.net/thumb/5/51/ON-load-Halls_of_Fabrication.jpg/1200px-ON-load-Halls_of_Fabrication.jpg".to_string()
+    } else if title.contains("ka") || title.contains("kyne") || title.contains("egida") {
+        "https://esosslfiles-a.akamaihd.net/cms/2020/05/2c2bc79be7a47609fa7b594935f9df6d.jpg".to_string()
+    } else {
+        "https://esosslfiles-a.akamaihd.net/ape/uploads/2022/09/f96a76373bd8e0521609bf24e88acb03.jpg".to_string()
+    }
 }
 
 async fn handle_event_days(id: &str, ctx: &Context, interaction: &ComponentInteraction) -> Result<()> {
