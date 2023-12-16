@@ -1,12 +1,9 @@
 use std::str::FromStr;
 use chrono::{Datelike, DateTime, Timelike, Utc};
-use duration_string::DurationString;
-use serenity::all::{ActionRow, ButtonStyle, ChannelId, ChannelType, Colour, CreateActionRow, CreateButton, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInputText, CreateInteractionResponseMessage, CreateModal, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, InputTextStyle, Mention, ReactionType, Timestamp, UserId};
+use serenity::all::{ActionRow, ChannelId, CreateModal};
 use serenity::all::ActionRowComponent::InputText;
-use crate::error::Error;
-use crate::events::models::{EventBasicData};
-use crate::events::signup::EventBackupRoles;
 use crate::prelude::*;
+use crate::utils::components::short_input;
 
 pub mod trials;
 pub mod models;
@@ -14,51 +11,18 @@ pub mod signup;
 pub mod parse;
 pub mod generic;
 pub(crate) mod pvp;
-
-pub fn new() -> CreateInteractionResponseMessage {
-    CreateInteractionResponseMessage::new()
-        .embed(CreateEmbed::new().title("Nuevo evento").description("Elige tipo de evento"))
-        .components(vec![CreateActionRow::Buttons(vec![
-            CreateButton::new("create_trial").label("Trial").style(ButtonStyle::Secondary),
-            CreateButton::new("create_pvp").label("PvP").style(ButtonStyle::Secondary),
-            CreateButton::new("create_generic").label("Generico").style(ButtonStyle::Secondary)
-        ])])
-        .ephemeral(true)
-}
-
-pub fn data(id: &str) -> CreateModal {
-    CreateModal::new(id, "Información del evento")
-        .components(vec![
-            CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Titulo del evento", "event_title")
-                .placeholder("Aventuras en poletas")
-                .required(true)),
-            CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, "Duracion", "event_duration")
-                .placeholder("1h")
-                .required(true)),
-            CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Paragraph, "Descripción", "trial_description")
-                .placeholder("Se empezara a montar 10 minutos antes\nbla bla bla")
-                .required(true)),
-        ])
-}
-
-pub fn select_date(id: &str, components: &Vec<ActionRow>, leader: &UserId) -> Result<CreateInteractionResponseMessage> {
-    let title = get_text(components, 0);
-    let duration = get_text(components, 1).parse::<DurationString>()
-        .map_err(|e| Error::DurationParse(anyhow::Error::msg(e)))?;
-    let description = get_text(components, 2);
-
-    Ok(CreateInteractionResponseMessage::new()
-        .embed(preview_embed(&title, &description, duration, leader))
-        .components(vec![CreateActionRow::SelectMenu(select_days(id))]))
-}
+pub(crate) mod components;
+pub(crate) mod embeds;
 
 pub fn select_time(id: &str, selected_days: &Vec<(ChannelId, String)>) -> CreateModal {
     CreateModal::new(id, "Horas del evento")
-        .components(selected_days.into_iter().map(|(channel, day)| {
-            CreateActionRow::InputText(CreateInputText::new(InputTextStyle::Short, day, format!("{}_{}", channel, day))
-                .placeholder("18:00")
-                .required(true))
-        }).collect())
+        .components(selected_days
+            .into_iter()
+            .map(|(channel, day)| {
+                short_input(day, &format!("{}_{}", channel, day), "18:00", true)
+            })
+            .collect()
+        )
 }
 
 pub fn get_date_times(components: &Vec<ActionRow>) -> Vec<(ChannelId, DateTime<Utc>)> {
@@ -72,39 +36,6 @@ pub fn get_date_times(components: &Vec<ActionRow>) -> Vec<(ChannelId, DateTime<U
             (id, dt)
         }
         ).collect()
-}
-
-pub fn event_class(id: &str) -> CreateInteractionResponseMessage {
-    CreateInteractionResponseMessage::new()
-        .ephemeral(true)
-        .components(vec![
-            CreateActionRow::SelectMenu(CreateSelectMenu::new(id, CreateSelectMenuKind::String {
-                options: vec![
-                    CreateSelectMenuOption::new("Necro", "<:necro:1154088177796137030>")
-                        .description("Nigromante")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154088177796137030), name: Some("necro".to_string())}),
-                    CreateSelectMenuOption::new("Warden", "<:warden:1154134387546398720>")
-                        .description("Custodio")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154134387546398720), name: Some("warden".to_string())}),
-                    CreateSelectMenuOption::new("Dragonknight", "<:dk:1157391862659809280>")
-                        .description("Caballero dragon")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391862659809280), name: Some("dk".to_string())}),
-                    CreateSelectMenuOption::new("Sorc", "<:sorc:1157391866971566100>")
-                        .description("Brujo")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391866971566100), name: Some("sorc".to_string())}),
-                    CreateSelectMenuOption::new("Nightblade", "<:nb:1157391864954093608>")
-                        .description("Hoja de la noche")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391864954093608), name: Some("nb".to_string())}),
-                    CreateSelectMenuOption::new("Templar", "<:templar:1157391868850618388>")
-                        .description("Templario")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1157391868850618388), name: Some("templar".to_string())}),
-                    CreateSelectMenuOption::new("Arcanist", "<:arcanist:1154134563392606218>")
-                        .description("Arcanista")
-                        .emoji(ReactionType::Custom {animated: false, id: EmojiId::new(1154134563392606218), name: Some("arcanist".to_string())})
-
-                ]
-            }).max_values(1).placeholder("Selecciona clase"))
-        ])
 }
 
 fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String, String)> {
@@ -122,102 +53,13 @@ fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String, String)> 
 fn calculate_next_date(day: &str) -> DateTime<Utc> {
     let now = Utc::now();
     let now_diff_monday = now.weekday().num_days_from_monday();
-
     let target_diff_monday = to_weekday(day).unwrap().num_days_from_monday();
     let next_target = if target_diff_monday > now_diff_monday {
         target_diff_monday - now_diff_monday
     } else if target_diff_monday == now_diff_monday {
         0
     } else {
-        now_diff_monday + target_diff_monday + 1
+        target_diff_monday + (7 - now_diff_monday)
     };
     now + chrono::Duration::days(next_target.into())
-}
-
-fn select_days(id: &str) -> CreateSelectMenu {
-    CreateSelectMenu::new(id, CreateSelectMenuKind::Channel {
-        channel_types: Some(vec![ChannelType::Text]),
-        default_channels: None,
-    })
-        .max_values(5)
-        .placeholder("Canales del evento")
-}
-
-fn preview_embed_basic(title: &str,
-                       description: &str,
-                       duration: DurationString,
-                       leader: &UserId) -> CreateEmbed {
-    CreateEmbed::new()
-        .author(CreateEmbedAuthor::new("Previsualizacion"))
-        .title(title)
-        .description(description)
-        .field(":date: Fecha y Hora:", "", true)
-        .field(":hourglass_flowing_sand: Duración", duration, true)
-        .field(":crown: Lider", Mention::User(*leader).to_string(), true)
-        .color(Colour::from_rgb(0, 255, 0))
-}
-
-fn preview_embed(
-    title: &str,
-    description: &str,
-    duration: DurationString,
-    leader: &UserId
-) -> CreateEmbed {
-    preview_embed_basic(title, description, duration, leader)
-        .field("", "\u{200b}", false)
-        .field("", "\u{200b}", false)
-        .field("Apuntados (0/12)", "", false)
-        .field(":wave: Reservas (0)", "", false)
-        .field(":x: Ausencias (0)", "", false)
-        .field("", "\u{200b}", false)
-        .thumbnail("https://images.uesp.net/d/d7/ON-icon-zonestory-assisted.png")
-}
-
-fn event_embed_basic(data: &impl EventBasicData) -> CreateEmbed {
-    CreateEmbed::new()
-        .title(data.title())
-        .description(if let Some(description) = data.description() {description} else {"".to_string()})
-        .field(":date: Fecha y Hora:", if let Some(datetime) = data.datetime() {
-            format!("<t:{}:f>", datetime.timestamp())
-        } else {"".to_string()}, true)
-        .field(":hourglass_flowing_sand: Duración", data.duration().to_string(), true)
-        .field(":crown: Lider", data.leader(), true)
-        .timestamp(Timestamp::now())
-        .footer(CreateEmbedFooter::new("Ultima modificacion:"))
-        .color(Colour::from_rgb(0, 255, 0))
-}
-
-fn event_embed_backup(data: &impl EventBackupRoles, embed: CreateEmbed) -> CreateEmbed {
-    let reserves = data.reserves();
-    let absents = data.absents();
-    embed
-        .field(format!(":wave: Reservas ({})", reserves.len()), format_players_embed(&reserves), false)
-        .field(format!(":x: Ausencias ({})", absents.len()), format_players_embed(&absents), false)
-}
-
-fn format_player_class_embed(players: &Vec<(String, UserId)>) -> String {
-    players.iter()
-        .map(|(class, player)| format!("└{class} <@{player}>"))
-        .collect::<Vec<String>>()
-        .join("\n")
-}
-
-fn format_players_embed(players: &Vec<UserId>) -> String {
-    players.iter()
-        .map(|player| format!("└ <@{player}>"))
-        .collect::<Vec<String>>()
-        .join("\n")
-}
-
-fn event_components_backup() -> CreateActionRow {
-    CreateActionRow::Buttons(vec![
-        CreateButton::new("signup_reserve")
-            .label("Reserva")
-            .style(ButtonStyle::Secondary)
-            .emoji(ReactionType::Unicode("👋".to_string())),
-        CreateButton::new("signup_absent")
-            .label("Ausencia")
-            .style(ButtonStyle::Secondary)
-            .emoji(ReactionType::Unicode("❌".to_string()))
-    ])
 }

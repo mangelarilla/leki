@@ -6,8 +6,7 @@ use serenity::all::{ChannelId, CreateMessage, GuildId, Mention, MessageId};
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
 use tokio::task::JoinHandle;
-use crate::events::models::{EventSignups};
-use crate::events::parse::ParseEventData;
+use crate::events::models::{EventKind, EventSignups};
 
 lazy_static! {
     static ref HASHMAP: Mutex<HashMap<ChannelId, JoinHandle<()>>> = Mutex::new(HashMap::new());
@@ -21,8 +20,8 @@ pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, 
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;
             let message = channel.message(&ctx.http, message).await.unwrap();
-            let event = message.parse_event().unwrap();
-            let mentions: Vec<String> = event.signups().into_iter().map(|s| Mention::User(s).to_string()).collect();
+            let event = EventKind::try_from(message).unwrap();
+            let mentions: Vec<String> = event.signups().into_iter().map(|s| Mention::User(s.into()).to_string()).collect();
             let signed_members = event.signups().into_iter().map(|user| guild.member(&ctx.http, user));
             let signed_members = serenity::futures::future::join_all(signed_members).await;
             channel.send_message(&ctx.http, CreateMessage::new()

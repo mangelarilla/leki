@@ -16,8 +16,7 @@ use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
-use crate::events::models::EventBasicData;
-use crate::events::parse::{parse_player, ParseEventData};
+use crate::events::models::{EventBasicData, EventKind};
 use crate::utils::{parse_event_link};
 
 struct Bot;
@@ -49,36 +48,10 @@ impl EventHandler for Bot {
                         let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
                         let message = channel.get(&ChannelId::new(channel_id)).unwrap()
                             .message(&ctx.http, MessageId::new(message)).await.unwrap();
-                        let event = message.parse_event().unwrap();
+                        let event = EventKind::try_from(message.clone()).unwrap();
                         tasks::set_reminder(event.datetime().unwrap(), ctx.clone(), ChannelId::new(channel_id), message.id, GuildId::new(guild));
                     }
                 }
-        }
-    }
-
-    async fn guild_scheduled_event_delete(&self, ctx: Context, event: ScheduledEvent) {
-        if event.creator_id.unwrap() == 1148032756899643412 {
-            let (guild, channel_id, message) = parse_event_link(&event.description.unwrap());
-            let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
-            let message = channel.get(&ChannelId::new(channel_id)).unwrap()
-                .message(&ctx.http, MessageId::new(message)).await;
-            if let Ok(message) = message {
-                let guild_event = message.parse_event().unwrap();
-                let leader = parse_player(&guild_event.leader());
-                let dm = leader.create_dm_channel(&ctx.http).await.unwrap();
-                dm.send_message(&ctx.http, CreateMessage::new()
-                    .embed(CreateEmbed::new()
-                        .title(format!("Borrar evento: '{}'?", event.name))
-                        .description("Esto borrara el evento y los mensajes posteriores del canal, menos las chinchetas")
-                        .field("Id del canal", channel_id.to_string(), true)
-                    )
-                    .components(vec![CreateActionRow::Buttons(vec![
-                        CreateButton::new("delete_event")
-                            .label("Borrar")
-                            .style(ButtonStyle::Danger)
-                    ])])
-                ).await.unwrap();
-            }
         }
     }
 
@@ -97,6 +70,32 @@ impl EventHandler for Bot {
                 interactions::handle_modal(&ctx, modal).await;
             }
             _ => {}
+        }
+    }
+
+    async fn guild_scheduled_event_delete(&self, ctx: Context, event: ScheduledEvent) {
+        if event.creator_id.unwrap() == 1148032756899643412 {
+            let (guild, channel_id, message) = parse_event_link(&event.description.unwrap());
+            let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
+            let message = channel.get(&ChannelId::new(channel_id)).unwrap()
+                .message(&ctx.http, MessageId::new(message)).await;
+            if let Ok(message) = message {
+                let guild_event = EventKind::try_from(message).unwrap();
+                let leader = guild_event.leader();
+                let dm = leader.create_dm_channel(&ctx.http).await.unwrap();
+                dm.send_message(&ctx.http, CreateMessage::new()
+                    .embed(CreateEmbed::new()
+                        .title(format!("Borrar evento: '{}'?", event.name))
+                        .description("Esto borrara el evento y los mensajes posteriores del canal, menos las chinchetas")
+                        .field("Id del canal", channel_id.to_string(), true)
+                    )
+                    .components(vec![CreateActionRow::Buttons(vec![
+                        CreateButton::new("delete_event")
+                            .label("Borrar")
+                            .style(ButtonStyle::Danger)
+                    ])])
+                ).await.unwrap();
+            }
         }
     }
 }

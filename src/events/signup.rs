@@ -1,27 +1,30 @@
 use serenity::all::{UserId};
-use crate::events::models::{EventKind};
+use crate::events::models::{EventKind, Player};
 
 pub trait EventBackupRoles {
-    fn reserves(&self) -> Vec<UserId>;
-    fn absents(&self) -> Vec<UserId>;
+    fn reserves(&self) -> Vec<Player>;
+    fn absents(&self) -> Vec<Player>;
     fn add_absent(&mut self, user: UserId);
     fn add_reserve(&mut self, user: UserId);
 }
 
 pub trait EventSignupRoles<T> {
     fn is_role_full(&self, role: T) -> bool;
-    fn signup(&mut self, role: T, user: UserId, class: String);
+    fn signup(&mut self, role: T, user: UserId);
+    fn signup_class(&mut self, role: T, user: UserId, class: String);
+    fn role(&self, role: T) -> &Vec<Player>;
+    fn max(&self, role: T) -> usize;
 }
 
 impl EventBackupRoles for EventKind {
-    fn reserves(&self) -> Vec<UserId> {
+    fn reserves(&self) -> Vec<Player> {
         match self {
             EventKind::Trial(t) => t.reserves(),
             EventKind::Generic(g) => g.reserves(),
             EventKind::PvP(p) => p.reserves(),
         }
     }
-    fn absents(&self) -> Vec<UserId> {
+    fn absents(&self) -> Vec<Player> {
         match self {
             EventKind::Trial(t) => t.absents(),
             EventKind::Generic(g) => g.absents(),
@@ -42,8 +45,4 @@ impl EventBackupRoles for EventKind {
             EventKind::PvP(p) => p.add_reserve(user),
         }
     }
-}
-
-pub(super) fn signups_no_class(signups: &Vec<(String, UserId)>) -> Vec<UserId> {
-    signups.iter().map(|(_,p)| *p).collect()
 }

@@ -1,18 +1,21 @@
+pub mod components;
+pub mod embeds;
+
 use chrono::{Weekday};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::all::ActionRowComponent::InputText;
 use serenity::all::{ActionRow};
 
-pub fn get_text(components: &Vec<ActionRow>, idx: usize) -> String {
+pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String> {
     let input_text = components.get(idx)
         .map(|row| row.components.get(0))
         .flatten().unwrap();
 
     if let InputText(input) = input_text {
-        input.value.as_ref().unwrap_or(&"".to_string()).to_string()
+        input.value.clone()
     } else {
-        String::new()
+        None
     }
 }
 

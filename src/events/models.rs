@@ -2,24 +2,42 @@ use chrono::{DateTime, Utc};
 use duration_string::DurationString;
 use serenity::all::{CreateActionRow, UserId};
 use serenity::builder::CreateEmbed;
-use crate::events::generic::{event_components, event_embed};
+use crate::events::generic::components::event_generic_signup_components;
+use crate::events::generic::embeds::event_generic_embed;
 use crate::events::generic::models::EventGenericData;
+use crate::events::pvp::components::pvp_signup_components;
+use crate::events::pvp::embeds::pvp_embed;
 use crate::events::pvp::models::PvPData;
-use crate::events::pvp::{pvp_components, pvp_embed};
+use crate::events::trials::components::trial_signup_components;
+use crate::events::trials::embeds::trial_embed;
 use crate::events::trials::models::TrialData;
-use crate::events::trials::{trial_components, trial_embed};
 
 pub trait EventBasicData {
     fn title(&self) -> String;
-    fn description(&self) -> Option<String>;
+    fn description(&self) -> String;
     fn datetime(&self) -> Option<DateTime<Utc>>;
     fn duration(&self) -> DurationString;
-    fn leader(&self) -> String;
+    fn leader(&self) -> UserId;
 }
 
 pub trait EventSignups {
-    fn signups(&self) -> Vec<UserId>;
+    fn signups(&self) -> Vec<Player>;
     fn remove_signup(&mut self, user: UserId);
+}
+
+#[derive(Clone, Debug, PartialOrd, PartialEq)]
+pub enum Player {
+    Basic(UserId),
+    Class(UserId, String)
+}
+
+impl Into<UserId> for Player {
+    fn into(self) -> UserId {
+        match self {
+            Player::Basic(user) => user,
+            Player::Class(user, _) => user
+        }
+    }
 }
 
 pub enum EventKind {
@@ -29,16 +47,16 @@ pub enum EventKind {
 impl EventKind {
     pub fn get_embed(&self) -> CreateEmbed {
         match self {
-            EventKind::Trial(t) => trial_embed(t),
-            EventKind::Generic(g) => event_embed(g),
-            EventKind::PvP(p) => pvp_embed(p)
+            EventKind::Trial(t) => trial_embed(t, false),
+            EventKind::Generic(g) => event_generic_embed(g, false),
+            EventKind::PvP(p) => pvp_embed(p, false)
         }
     }
     pub fn get_components(&self) -> Vec<CreateActionRow> {
         match self {
-            EventKind::Trial(_) => trial_components(),
-            EventKind::Generic(_) => event_components("signup_event"),
-            EventKind::PvP(_) => pvp_components()
+            EventKind::Trial(_) => trial_signup_components(),
+            EventKind::Generic(_) => event_generic_signup_components("signup_generic_event"),
+            EventKind::PvP(_) => pvp_signup_components()
         }
     }
 
@@ -52,7 +70,7 @@ impl EventKind {
 }
 
 impl EventSignups for EventKind {
-    fn signups(&self) -> Vec<UserId> {
+    fn signups(&self) -> Vec<Player> {
         match self {
             EventKind::Trial(trial) => trial.signups(),
             EventKind::Generic(g) => g.signups(),
@@ -76,7 +94,7 @@ impl EventBasicData for EventKind {
             EventKind::PvP(p) => p.title(),
         }
     }
-    fn description(&self) -> Option<String> {
+    fn description(&self) -> String {
         match self {
             EventKind::Trial(t) => t.description(),
             EventKind::Generic(g) => g.description(),
@@ -97,7 +115,7 @@ impl EventBasicData for EventKind {
             EventKind::PvP(p) => p.duration(),
         }
     }
-    fn leader(&self) -> String {
+    fn leader(&self) -> UserId {
         match self {
             EventKind::Trial(t) => t.leader(),
             EventKind::Generic(g) => g.leader(),
@@ -106,8 +124,8 @@ impl EventBasicData for EventKind {
     }
 }
 
-pub(super) fn remove_from_role(list: &mut Vec<UserId>, user: UserId) {
-    let index = list.iter().position(|player| *player == user);
+pub(super) fn remove_from_role(list: &mut Vec<Player>, user: UserId) {
+    let index = list.iter().position(|player| <Player as Into<UserId>>::into(player.clone()) == user);
     if let Some(index) = index {
         list.remove(index);
     }
