@@ -91,7 +91,7 @@ async fn create_event(interaction: &ModalInteraction, ctx: &Context, is_pvp: boo
             count += 1;
         }
     }
-    Ok(CreateInteractionResponse::Defer(
+    Ok(CreateInteractionResponse::Message(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
             .embed(CreateEmbed::new()
