@@ -38,6 +38,9 @@ impl EventHandler for Bot {
             .name_localized("es-ES","Eliminar evento")
             .kind(CommandType::Message)
         ).await;
+        register_command(&ctx.http, CreateCommand::new("help")
+            .description("Como se usa Leki")
+        ).await;
 
         let ctx = Arc::new(ctx);
         for guild in &ready.guilds {
