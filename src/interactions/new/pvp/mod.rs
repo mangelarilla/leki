@@ -24,6 +24,7 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
         "semi_public_brawlers" | "private_brawlers" => Ok(update_preview_with_role(interaction, PvPRole::Brawler)),
         "semi_public_healers" | "private_healers" => Ok(update_preview_with_role(interaction, PvPRole::Healer)),
         "semi_public_bombers" | "private_bombers" => Ok(update_preview_with_role(interaction, PvPRole::Bomber)),
+        "semi_public_gankers" | "private_gankers" => Ok(update_preview_with_role(interaction, PvPRole::Ganker)),
         "semi_public_confirm" => Ok(request_day_channel()),
         "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
         "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
@@ -88,7 +89,7 @@ fn request_semi_public_roster_choices() -> CreateInteractionResponse {
     let response = CreateInteractionResponseMessage::new()
         .components(pvp_participants_components(
             &prefixed("semi_public_tanks"), &prefixed("semi_public_brawlers"), &prefixed("semi_public_healers"),
-            &prefixed("semi_public_bombers"), &prefixed("semi_public_confirm")
+            &prefixed("semi_public_bombers"), &prefixed("semi_public_gankers"), &prefixed("semi_public_confirm")
         ));
 
     CreateInteractionResponse::UpdateMessage(response)
@@ -98,7 +99,7 @@ fn request_private_roster_choices() -> CreateInteractionResponse {
     let response = CreateInteractionResponseMessage::new()
         .components(pvp_participants_components(
             &prefixed("private_tanks"), &prefixed("private_brawlers"), &prefixed("private_healers"),
-            &prefixed("private_bombers"), &prefixed("private_confirm")
+            &prefixed("private_bombers"), &prefixed("private_gankers"), &prefixed("private_confirm")
         ));
 
     CreateInteractionResponse::UpdateMessage(response)

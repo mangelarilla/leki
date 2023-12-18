@@ -16,6 +16,7 @@ pub struct PvPData {
     tanks: Vec<Player>,
     brawlers: Vec<Player>,
     bombers: Vec<Player>,
+    gankers: Vec<Player>,
     healers: Vec<Player>,
     max_tanks: usize,
     max_healers: usize,
@@ -41,6 +42,7 @@ impl PvPData {
             max_healers: 3,
             reserves: vec![],
             absents: vec![],
+            gankers: vec![]
         }
     }
 }
@@ -69,7 +71,7 @@ impl EventBackupRoles for PvPData {
 impl EventSignups for PvPData {
     fn signups(&self) -> Vec<Player> {
         [self.tanks.as_slice(), self.brawlers.as_slice(),
-            self.bombers.as_slice(), self.healers.as_slice()].concat()
+            self.bombers.as_slice(), self.healers.as_slice(), self.gankers.as_slice()].concat()
     }
 
     fn remove_signup(&mut self, user: UserId) {
@@ -77,6 +79,7 @@ impl EventSignups for PvPData {
         remove_from_role(&mut self.brawlers, user);
         remove_from_role(&mut self.healers, user);
         remove_from_role(&mut self.bombers, user);
+        remove_from_role(&mut self.gankers, user);
         remove_from_role(&mut self.reserves, user);
         remove_from_role(&mut self.absents, user);
     }
@@ -98,6 +101,7 @@ impl EventSignupRoles<PvPRole> for PvPData {
             PvPRole::Healer => self.healers.push(Player::Basic(user)),
             PvPRole::Brawler => self.brawlers.push(Player::Basic(user)),
             PvPRole::Bomber => self.bombers.push(Player::Basic(user)),
+            PvPRole::Ganker => self.gankers.push(Player::Basic(user))
         }
     }
 
@@ -108,6 +112,7 @@ impl EventSignupRoles<PvPRole> for PvPData {
             PvPRole::Healer => self.healers.push(Player::Class(user, class)),
             PvPRole::Brawler => self.brawlers.push(Player::Class(user, class)),
             PvPRole::Bomber => self.bombers.push(Player::Class(user, class)),
+            PvPRole::Ganker => self.gankers.push(Player::Class(user, class)),
         }
     }
 
@@ -117,6 +122,7 @@ impl EventSignupRoles<PvPRole> for PvPData {
             PvPRole::Healer => &self.healers,
             PvPRole::Brawler => &self.brawlers,
             PvPRole::Bomber => &self.bombers,
+            PvPRole::Ganker => &self.gankers
         }
     }
 
@@ -125,7 +131,8 @@ impl EventSignupRoles<PvPRole> for PvPData {
             PvPRole::Tank => self.max_tanks,
             PvPRole::Healer => self.max_healers,
             PvPRole::Brawler => 0,
-            PvPRole::Bomber => 0
+            PvPRole::Bomber => 0,
+            PvPRole::Ganker => 0
         }
     }
 }
@@ -144,8 +151,9 @@ impl TryFrom<Message> for PvPData {
         let brawlers = fields.get(6).unwrap();
         let healers = fields.get(7).unwrap();
         let bombers = fields.get(8).unwrap();
-        let reserves = fields.get(9).unwrap();
-        let absents = fields.get(10).unwrap();
+        let gankers = fields.get(9).unwrap();
+        let reserves = fields.get(10).unwrap();
+        let absents = fields.get(11).unwrap();
 
         Ok(PvPData {
             title: embed.title.clone().unwrap(),
@@ -157,6 +165,7 @@ impl TryFrom<Message> for PvPData {
             max_tanks: get_max(&tanks.name).parse::<usize>().unwrap(),
             brawlers: brawlers.value.clone().lines().map(|s| parse_player(s)).collect(),
             bombers: bombers.value.clone().lines().map(|s| parse_player(s)).collect(),
+            gankers: gankers.value.clone().lines().map(|s| parse_player(s)).collect(),
             healers: healers.value.clone().lines().map(|s| parse_player(s)).collect(),
             max_healers: get_max(&healers.name).parse::<usize>().unwrap(),
             reserves: reserves.value.clone().lines().map(|s| parse_player(s)).collect(),

@@ -17,7 +17,7 @@ pub fn pvp_signup_components() -> Vec<CreateActionRow> {
             .style(ButtonStyle::Success)
             .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134006036713622), name: Some("tank".to_string())}),
         CreateButton::new("signup_pvp_brawler")
-            .label("DD")
+            .label("Brawler")
             .style(ButtonStyle::Success)
             .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())}),
         CreateButton::new("signup_pvp_healer")
@@ -27,18 +27,23 @@ pub fn pvp_signup_components() -> Vec<CreateActionRow> {
         CreateButton::new("signup_pvp_bomber")
             .label("Bomber")
             .style(ButtonStyle::Success)
-            .emoji(ReactionType::Unicode("💣".to_string()))
+            .emoji(ReactionType::Unicode("💣".to_string())),
+        CreateButton::new("signup_pvp_ganker")
+            .label("Ganker")
+            .style(ButtonStyle::Success)
+            .emoji(ReactionType::Unicode("🔪".to_string()))
     ]);
 
     vec![class_row, event_components_backup()]
 }
 
-pub fn pvp_participants_components(tanks_id: &str, brawlers_id: &str, healers_id: &str, bombers_id: &str, id: &str) -> Vec<CreateActionRow> {
+pub fn pvp_participants_components(tanks_id: &str, brawlers_id: &str, healers_id: &str, bombers_id: &str, gankers_id: &str, id: &str) -> Vec<CreateActionRow> {
     vec![
         get_roster_select(tanks_id, "Tanques titulares", 2),
         get_roster_select(brawlers_id, "Brawlers titulares", 8),
         get_roster_select(healers_id, "Healers titulares", 2),
         get_roster_select(bombers_id, "Bombers titulares", 3),
+        get_roster_select(gankers_id, "Gankers titulares", 3),
         CreateActionRow::Buttons(vec![
             CreateButton::new(id)
                 .label("Continuar")

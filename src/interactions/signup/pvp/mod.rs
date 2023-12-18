@@ -17,11 +17,13 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
         "tank" => signup_pvp(interaction, PvPRole::Tank, "tank_class"),
         "brawler" => signup_pvp(interaction, PvPRole::Brawler, "brawler_class"),
         "healer" => signup_pvp(interaction, PvPRole::Healer, "healer_class"),
-        "bomber" => signup_pvp(interaction, PvPRole::Healer, "bomber_class"),
+        "bomber" => signup_pvp(interaction, PvPRole::Bomber, "bomber_class"),
+        "ganker" => signup_pvp(interaction, PvPRole::Ganker, "ganker_class"),
         "healer_class" => signup_pvp_class(&interaction, ctx, PvPRole::Healer).await,
         "brawler_class" => signup_pvp_class(&interaction, ctx, PvPRole::Brawler).await,
         "tank_class" => signup_pvp_class(&interaction, ctx, PvPRole::Tank).await,
         "bomber_class" => signup_pvp_class(&interaction, ctx, PvPRole::Bomber).await,
+        "ganker_class" => signup_pvp_class(&interaction, ctx, PvPRole::Ganker).await,
         _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
     }?;
 

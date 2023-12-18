@@ -12,7 +12,8 @@ pub fn pvp_embed(data: &PvPData, is_preview: bool) -> CreateEmbed {
     let embed = format_pvp_role(embed, data, PvPRole::Tank, "<:tank:1154134006036713622> Tanks");
     let embed = format_pvp_role(embed, data, PvPRole::Brawler, "<:dd:1154134731756150974> Brawlers");
     let embed = format_pvp_role(embed, data, PvPRole::Healer, "<:healer:1154134924153065544> Healers");
-    let embed = format_pvp_role(embed, data, PvPRole::Healer, ":bomb: Bombers");
+    let embed = format_pvp_role(embed, data, PvPRole::Bomber, ":bomb: Bombers");
+    let embed = format_pvp_role(embed, data, PvPRole::Ganker, ":knife: Gankers");
 
     event_embed_backup(data, embed)
         .field("", "\u{200b}", false)

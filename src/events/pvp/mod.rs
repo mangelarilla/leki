@@ -4,5 +4,5 @@ pub(crate) mod embeds;
 
 #[derive(Copy, Clone, Debug)]
 pub enum PvPRole {
-    Tank, Healer, Brawler, Bomber
+    Tank, Healer, Brawler, Bomber, Ganker
 }
