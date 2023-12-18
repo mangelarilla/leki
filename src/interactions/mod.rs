@@ -3,7 +3,7 @@ mod new;
 mod signup;
 
 use chrono::{DateTime, Utc};
-use serenity::all::{ChannelId, Colour, CommandInteraction, ComponentInteraction, CreateAttachment, CreateEmbedAuthor, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
+use serenity::all::{ChannelId, CommandInteraction, ComponentInteraction, CreateAttachment, CreateEmbedAuthor, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
 use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateScheduledEvent, GetMessages};
 use serenity::client::Context;
 use serenity::model::Timestamp;

@@ -7,7 +7,7 @@ pub(crate) fn event_embed_basic(data: &impl EventBasicData, is_preview: bool) ->
         .title(data.title())
         .description(data.description())
         .field(":date: Fecha y Hora:", if let Some(datetime) = data.datetime() {
-            format!("<t:{}:f>", datetime.timestamp())
+            format!("<t:{}:F>", datetime.timestamp())
         } else {"".to_string()}, true)
         .field(":hourglass_flowing_sand: Duración", data.duration().to_string(), true)
         .field(":crown: Lider", Mention::User(data.leader()).to_string(), true)
