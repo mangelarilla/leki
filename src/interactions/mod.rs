@@ -3,7 +3,7 @@ mod new;
 mod signup;
 
 use chrono::{DateTime, Utc};
-use serenity::all::{ChannelId, CommandInteraction, ComponentInteraction, CreateAttachment, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
+use serenity::all::{ChannelId, Colour, CommandInteraction, ComponentInteraction, CreateAttachment, CreateEmbedAuthor, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
 use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateScheduledEvent, GetMessages};
 use serenity::client::Context;
 use serenity::model::Timestamp;
@@ -48,6 +48,10 @@ pub(crate) async fn handle_commands(ctx: &Context, interaction: CommandInteracti
                     .embed(CreateEmbed::new()
                         .image("https://eso-hub.com/storage/headers/sets-overview-page-banner-image-header-g-pcsz-x.jpg")
                         .thumbnail("https://static.wikia.nocookie.net/elder-scrolls-fanon/images/6/61/Leki.jpg")
+                        .colour(Colour::new(980808))
+                        .author(CreateEmbedAuthor::new("Poleyecto")
+                            .url("https://github.com/mangelarilla/leki")
+                            .icon_url("https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"))
                         .title("Como usar Leki")
                         .description(r#"
 **Para crear un evento**, se hace mediante el comando `/events`
