@@ -48,7 +48,7 @@ pub(crate) async fn handle_commands(ctx: &Context, interaction: CommandInteracti
                     .embed(CreateEmbed::new()
                         .image("https://eso-hub.com/storage/headers/sets-overview-page-banner-image-header-g-pcsz-x.jpg")
                         .thumbnail("https://static.wikia.nocookie.net/elder-scrolls-fanon/images/6/61/Leki.jpg")
-                        .colour(Colour::new(980808))
+                        .colour((152, 8, 8))
                         .author(CreateEmbedAuthor::new("Poleyecto")
                             .url("https://github.com/mangelarilla/leki")
                             .icon_url("https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png"))
