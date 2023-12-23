@@ -6,7 +6,7 @@ use crate::events::trials::components::{trial_basic_info_components, trial_parti
 use crate::events::trials::embeds::{trial_embed};
 use crate::events::trials::models::TrialData;
 use crate::events::trials::TrialRole;
-use crate::interactions::new::{create_event, get_selected_users, request_event_times};
+use crate::interactions::new::{get_selected_users, request_event_times};
 use crate::prelude::*;
 
 const PREFIX: &'static str = "trial_";
@@ -15,30 +15,33 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
     let event_id = interaction.data.custom_id
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
-    let response = match event_id.as_str() {
-        "event" => Ok(request_basic_trial_data()),
-        "public" => Ok(request_day_channel()),
-        "semi_public" => Ok(request_semi_public_roster_choices()),
-        "private" => Ok(request_private_roster_choices()),
-        "semi_public_tanks" | "private_tanks" => Ok(update_preview_with_role(interaction, TrialRole::Tank)),
-        "semi_public_dd" | "private_dd" => Ok(update_preview_with_role(interaction, TrialRole::DD)),
-        "semi_public_healers" | "private_healers" => Ok(update_preview_with_role(interaction, TrialRole::Healer)),
-        "semi_public_confirm" => Ok(request_day_channel()),
-        "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
-        "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
-        _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
+    let response = if event_id.starts_with("times") {
+        Ok(super::create_event(interaction, ctx, false).await?)
+    } else {
+        match event_id.as_str() {
+            "event" => Ok(request_basic_trial_data()),
+            "public" => Ok(request_day_channel()),
+            "semi_public" => Ok(request_semi_public_roster_choices()),
+            "private" => Ok(request_private_roster_choices()),
+            "semi_public_tanks" | "private_tanks" => Ok(update_preview_with_role(interaction, TrialRole::Tank)),
+            "semi_public_dd" | "private_dd" => Ok(update_preview_with_role(interaction, TrialRole::DD)),
+            "semi_public_healers" | "private_healers" => Ok(update_preview_with_role(interaction, TrialRole::Healer)),
+            "semi_public_confirm" => Ok(request_day_channel()),
+            "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
+            "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
+            _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
+        }
     }?;
 
     Ok(response)
 }
 
-pub(super) async fn handle_modal(interaction: &ModalInteraction, ctx: &Context) -> Result<CreateInteractionResponse> {
+pub(super) async fn handle_modal(interaction: &ModalInteraction, _ctx: &Context) -> Result<CreateInteractionResponse> {
     let event_id = interaction.data.custom_id
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
     let response = match event_id.as_str() {
         "basic_info" => Ok(request_trial_scope_and_create_preview(interaction)),
-        "times" => Ok(create_event(interaction, ctx, false).await?),
         _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
     }?;
 

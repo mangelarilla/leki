@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-shuttle-secrets = "0.35.1"
-shuttle-serenity = { version = "0.35.1", default-features = false, features = ["serenity-0-12-rustls_backend"] }
-shuttle-runtime = "0.35.1"
-anyhow = "1.0.75"
+shuttle-secrets = "0.35.2"
+shuttle-serenity = { version = "0.35.2", default-features = false, features = ["serenity-0-12-rustls_backend"] }
+shuttle-runtime = "0.35.2"
+anyhow = "1.0.76"
 thiserror = "1.0.51"
 serenity = { version = "0.12.0", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
-tokio = "1.35.0"
+tokio = "1.35.1"
 tracing = "0.1.40"
 chrono = "0.4.31"
 duration-string="0.3"

@@ -11,22 +11,25 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
     let event_id = interaction.data.custom_id
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
-    let response = match event_id.as_str() {
-        "event" => Ok(request_basic_generic_data()),
-        "event_day" => Ok(super::request_event_times(&prefixed("times"), ctx, interaction).await?),
-        _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
+    let response = if event_id.starts_with("times") {
+        Ok(super::create_event(interaction, ctx, false).await?)
+    } else {
+        match event_id.as_str() {
+            "event" => Ok(request_basic_generic_data()),
+            "event_day" => Ok(super::request_event_times(&prefixed("times"), ctx, interaction).await?),
+            _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
+        }
     }?;
 
     Ok(response)
 }
 
-pub(super) async fn handle_modal(interaction: &ModalInteraction, ctx: &Context) -> Result<CreateInteractionResponse> {
+pub(super) async fn handle_modal(interaction: &ModalInteraction, _ctx: &Context) -> Result<CreateInteractionResponse> {
     let event_id = interaction.data.custom_id
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
     let response = match event_id.as_str() {
         "basic_info" => Ok(request_day_channel_and_create_preview(interaction)),
-        "times" => Ok(super::create_event(interaction, ctx, false).await?),
         _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
     }?;
 

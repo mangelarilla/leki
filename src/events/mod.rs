@@ -1,9 +1,7 @@
 use std::str::FromStr;
 use chrono::{Datelike, DateTime, Timelike, Utc};
-use serenity::all::{ActionRow, ChannelId, CreateModal};
-use serenity::all::ActionRowComponent::InputText;
+use serenity::all::{ChannelId, ComponentInteractionData, ComponentInteractionDataKind};
 use crate::prelude::*;
-use crate::utils::components::short_input;
 
 pub mod trials;
 pub mod models;
@@ -14,40 +12,18 @@ pub(crate) mod pvp;
 pub(crate) mod components;
 pub(crate) mod embeds;
 
-pub fn select_time(id: &str, selected_days: &Vec<(ChannelId, String)>) -> CreateModal {
-    CreateModal::new(id, "Horas del evento")
-        .components(selected_days
-            .into_iter()
-            .map(|(channel, day)| {
-                short_input(day, &format!("{}_{}", channel, day), "18:00", true)
-            })
-            .collect()
-        )
-}
-
-pub fn get_date_times(components: &Vec<ActionRow>) -> Vec<(ChannelId, DateTime<Utc>)> {
-    get_days_times(components).into_iter()
-        .map(|(channel, day, time)| {
-            let dt = calculate_next_date(&day)
-                // hack for spanish timezone
-                .with_hour((&time[..2]).parse::<u32>().unwrap() - 1).unwrap()
-                .with_minute((&time[3..]).parse::<u32>().unwrap()).unwrap();
-            let id = ChannelId::from_str(&channel).unwrap();
-            (id, dt)
-        }
-        ).collect()
-}
-
-fn get_days_times(components: &Vec<ActionRow>) -> Vec<(String, String, String)> {
-    components.iter()
-        .filter_map(|row| {
-            if let InputText(input) = row.components.get(0).unwrap() {
-                let (id, day) = input.custom_id.split_once('_').unwrap();
-                Some((id.trim().to_string(), day.trim().to_string(), input.value.as_ref().unwrap_or(&"".to_string()).trim().to_string()))
-            } else {
-                None
-            }
-        }).collect()
+pub fn get_date_time(data: &ComponentInteractionData) -> Option<(ChannelId, DateTime<Utc>)> {
+    if let ComponentInteractionDataKind::StringSelect { values} = &data.kind {
+        let time = values.first().unwrap();
+        let (_, channel_day) = data.custom_id.split_once("__").unwrap();
+        let (channel, day) = channel_day.split_once("_").unwrap();
+        let dt = calculate_next_date(&day)
+            // hack for spanish timezone
+            .with_hour((&time[..2]).parse::<u32>().unwrap() - 1).unwrap()
+            .with_minute((&time[3..]).parse::<u32>().unwrap()).unwrap();
+        let id = ChannelId::from_str(&channel).unwrap();
+        Some((id, dt))
+    } else { None }
 }
 
 fn calculate_next_date(day: &str) -> DateTime<Utc> {

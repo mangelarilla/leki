@@ -1,4 +1,4 @@
-use serenity::all::{ButtonStyle, ChannelType, CreateActionRow, CreateButton, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, ReactionType};
+use serenity::all::{ButtonStyle, ChannelId, ChannelType, CreateActionRow, CreateButton, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, ReactionType};
 
 pub(crate) fn new_event_components(trial_id: &str, pvp_id: &str, generic_id: &str) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![
@@ -52,6 +52,19 @@ pub(crate) fn select_event_channel(id: &str) -> Vec<CreateActionRow> {
     ]
 }
 
+pub(crate) fn select_time(id: &str, selected_days: &Vec<(ChannelId, String)>) -> Vec<CreateActionRow> {
+    let builder = selected_days
+        .into_iter()
+        .map(|(channel, day)| {
+            CreateActionRow::SelectMenu(
+                CreateSelectMenu::new(format!("{}__{}_{}", id, channel, day), time_options())
+                    .placeholder(format!("Selecciona hora para el dia {}", day))
+            )
+        })
+        .collect();
+    builder
+}
+
 pub(crate) fn select_player_class(id: &str) -> Vec<CreateActionRow> {
     let class_selector = CreateSelectMenuKind::String {
         options: vec![
@@ -70,6 +83,25 @@ pub(crate) fn select_player_class(id: &str) -> Vec<CreateActionRow> {
             .max_values(1)
             .placeholder("Selecciona clase"))
     ]
+}
+
+pub(crate) fn time_options() -> CreateSelectMenuKind {
+    CreateSelectMenuKind::String {
+        options: vec![
+            time_option("16:00"), time_option("16:30"),
+            time_option("17:00"), time_option("17:30"),
+            time_option("18:00"), time_option("18:30"),
+            time_option("19:00"), time_option("19:30"),
+            time_option("20:00"), time_option("20:30"),
+            time_option("21:00"), time_option("21:30"),
+            time_option("22:00"), time_option("22:30"),
+            time_option("23:00"), time_option("23:30"),
+        ]
+    }
+}
+
+fn time_option(time: &str) -> CreateSelectMenuOption {
+    CreateSelectMenuOption::new(time, time)
 }
 
 fn class_option(label: &str, description: &str, emoji_id: u64, emoji_label: &str) -> CreateSelectMenuOption {

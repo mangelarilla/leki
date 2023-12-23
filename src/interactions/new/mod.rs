@@ -3,12 +3,12 @@ mod pvp;
 mod generic;
 
 use std::sync::Arc;
-use serenity::all::{CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateEmbed, CreateInteractionResponse, CreateMessage, ModalInteraction, UserId};
+use serenity::all::{ActionRowComponent, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateMessage, CreateSelectMenu, Mention, ModalInteraction, UserId};
 use serenity::builder::CreateInteractionResponseMessage;
-use crate::events::components::{event_components_backup, new_event_components};
+use crate::events::components::{event_components_backup, new_event_components, time_options};
 use crate::events::embeds::new_event_embed;
 use crate::events::models::{EventBasicData, EventKind};
-use crate::interactions::{create_discord_event, get_event_channel_messages};
+use crate::interactions::{create_discord_event};
 use crate::prelude::*;
 use crate::tasks;
 
@@ -65,38 +65,47 @@ async fn request_event_times(id: &str, ctx: &Context, interaction: &ComponentInt
             let name = channel_id.name(&ctx.http).await?;
             channels.push((channel_id.clone(), get_channel_weekday(&name).unwrap()));
         }
-        Ok(CreateInteractionResponse::Modal(events::select_time(id, &channels)))
+        Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new()
+            .components(events::components::select_time(id, &channels))
+        ))
     } else {
         unreachable!("The data kind is always a channel select")
     }
 }
 
-async fn create_event(interaction: &ModalInteraction, ctx: &Context, is_pvp: bool) -> Result<CreateInteractionResponse> {
-    let mut count = 0;
-    for (channel, next_date) in events::get_date_times(&interaction.data.components) {
-        let guild = interaction.guild_id.unwrap();
-        let messages = get_event_channel_messages(channel, ctx).await?;
-        if messages.len() == 0 {
-            let message = interaction.message.clone().unwrap();
-            let mut data = EventKind::try_from(*message).unwrap();
-            data.set_datetime(next_date.clone());
-            let msg = channel.send_message(&ctx.http, CreateMessage::new()
-                .embed(data.get_embed())
-                .components(if data.title().starts_with("[Roster Cerrado]") {
-                    vec![event_components_backup()]
-                } else { data.get_components() })
-            ).await.unwrap();
-            create_discord_event(guild, ctx, &data, next_date, channel, msg.id, is_pvp).await?;
-            tasks::set_reminder(data.datetime().unwrap(), Arc::new(ctx.clone()), channel, msg.id, guild);
-            count += 1;
-        }
-    }
-    Ok(CreateInteractionResponse::Message(
+async fn create_event(interaction: &ComponentInteraction, ctx: &Context, is_pvp: bool) -> Result<CreateInteractionResponse> {
+    let (channel, next_date) = events::get_date_time(&interaction.data).unwrap();
+    let guild = interaction.guild_id.unwrap();
+    let message = interaction.message.clone();
+
+    let mut data = EventKind::try_from(*message.clone()).unwrap();
+    data.set_datetime(next_date.clone());
+
+    let msg = channel.send_message(&ctx.http, CreateMessage::new()
+        .embed(data.get_embed())
+        .components(if data.title().starts_with("[Roster Cerrado]") {
+            vec![event_components_backup()]
+        } else { data.get_components() })
+    ).await.unwrap();
+    create_discord_event(guild, ctx, &data, next_date, channel, msg.id, is_pvp).await?;
+    tasks::set_reminder(data.datetime().unwrap(), Arc::new(ctx.clone()), channel, msg.id, guild);
+
+    let remaining_times = message.components.iter()
+        .filter_map(|r| {
+            if let ActionRowComponent::SelectMenu(select) = r.components.first().unwrap() {
+                let id = select.custom_id.clone().unwrap();
+                if id != interaction.data.custom_id {
+                    Some(CreateActionRow::SelectMenu(CreateSelectMenu::new(id, time_options())))
+                } else { None }
+            } else { None }
+        })
+        .collect();
+
+    Ok(CreateInteractionResponse::UpdateMessage(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .embed(CreateEmbed::new()
-                .description(format!("{} eventos creados! {}", count, if count == 0 {"Revisa que no esten ocupados esos dias :("} else{""})))
-            .components(vec![])
+            .add_embed(CreateEmbed::new().title("Nuevo evento!").description(format!("## Evento creado en {}", Mention::Channel(channel).to_string())))
+            .components(remaining_times)
     ))
 }
 
