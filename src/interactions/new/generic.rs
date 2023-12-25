@@ -3,6 +3,7 @@ use crate::events::components::{select_event_channel};
 use crate::events::generic::components::event_generic_basic_info;
 use crate::events::generic::embeds::event_generic_embed;
 use crate::events::generic::models::EventGenericData;
+use crate::events::models::FromBasicModal;
 use crate::prelude::*;
 
 const PREFIX: &'static str = "generic_";

@@ -1,6 +1,6 @@
 use serenity::all::{ButtonStyle, ChannelId, ChannelType, CreateActionRow, CreateButton, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, ReactionType};
 
-pub(crate) fn new_event_components(trial_id: &str, pvp_id: &str, generic_id: &str) -> Vec<CreateActionRow> {
+pub(crate) fn new_event_components(trial_id: impl Into<String>, pvp_id: impl Into<String>, generic_id: impl Into<String>) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![
         CreateButton::new(trial_id).label("Trial").style(ButtonStyle::Secondary),
         CreateButton::new(pvp_id).label("PvP").style(ButtonStyle::Secondary),
@@ -8,7 +8,7 @@ pub(crate) fn new_event_components(trial_id: &str, pvp_id: &str, generic_id: &st
     ])]
 }
 
-pub fn event_scope_components(id_public: &str, id_semi_public: &str, id_private: &str) -> Vec<CreateActionRow> {
+pub(crate) fn event_scope_components(id_public: impl Into<String>, id_semi_public: impl Into<String>, id_private: impl Into<String>) -> Vec<CreateActionRow> {
     vec![
         CreateActionRow::Buttons(vec![
             CreateButton::new(id_public)
@@ -20,6 +20,19 @@ pub fn event_scope_components(id_public: &str, id_semi_public: &str, id_private:
             CreateButton::new(id_private)
                 .label("Cerrado")
                 .style(ButtonStyle::Danger)
+        ])
+    ]
+}
+
+pub(crate) fn event_comp_defaults_components(id_confirm: impl Into<String>, id_change: impl Into<String>) -> Vec<CreateActionRow> {
+    vec![
+        CreateActionRow::Buttons(vec![
+            CreateButton::new(id_confirm)
+                .label("Confirmar")
+                .style(ButtonStyle::Success),
+            CreateButton::new(id_change)
+                .label("Modificar")
+                .style(ButtonStyle::Secondary)
         ])
     ]
 }

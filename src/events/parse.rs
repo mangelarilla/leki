@@ -1,9 +1,9 @@
 use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serenity::all::{ActionRow, Message, UserId};
+use serenity::all::{ActionRow, EmbedField, Message, UserId};
 use crate::events::generic::models::EventGenericData;
-use crate::events::models::{EventKind, Player};
+use crate::events::models::{EventKind, Player, PlayersInRole};
 use crate::events::pvp::models::PvPData;
 use crate::events::trials::models::TrialData;
 use crate::prelude::get_input_value;
@@ -21,14 +21,20 @@ impl From<Message> for EventKind {
     }
 }
 
-pub(crate) fn get_max(text: &str) -> String {
+pub(crate) fn parse_players_in_role(field: &EmbedField) -> PlayersInRole {
+    let players = field.value.clone().lines().map(|s| parse_player(s)).collect();
+    let max = get_max(&field.name).map(|max| max.parse::<usize>().ok()).flatten();
+    PlayersInRole::new(players, max)
+}
+
+pub(crate) fn get_max(text: &str) -> Option<String> {
     tracing::info!("get_max: {text}");
     lazy_static! {
         static ref RE: Regex = Regex::new(r".+\/(?P<max>\d+)").unwrap();
     }
     RE.captures(text).and_then(|cap| {
         cap.name("max").map(|max| max.as_str().to_string())
-    }).unwrap()
+    })
 }
 
 pub(super) fn parse_basic_from_modal(components: &Vec<ActionRow>) -> (String, String, DurationString) {

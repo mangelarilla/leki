@@ -1,5 +1,5 @@
 use serenity::all::{UserId};
-use crate::events::models::{EventKind, Player};
+use crate::events::models::{EventKind, Player, PlayersInRole};
 
 pub trait EventBackupRoles {
     fn reserves(&self) -> Vec<Player>;
@@ -12,8 +12,7 @@ pub trait EventSignupRoles<T> {
     fn is_role_full(&self, role: T) -> bool;
     fn signup(&mut self, role: T, user: UserId);
     fn signup_class(&mut self, role: T, user: UserId, class: String);
-    fn role(&self, role: T) -> &Vec<Player>;
-    fn max(&self, role: T) -> usize;
+    fn role(&self, role: T) -> &PlayersInRole;
 }
 
 impl EventBackupRoles for EventKind {

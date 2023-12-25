@@ -1,15 +1,12 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serenity::all::{CreateActionRow, UserId};
+use serenity::all::{ActionRow, CreateActionRow, Message, UserId};
 use serenity::builder::CreateEmbed;
 use crate::events::generic::components::event_generic_signup_components;
-use crate::events::generic::embeds::event_generic_embed;
 use crate::events::generic::models::EventGenericData;
 use crate::events::pvp::components::pvp_signup_components;
-use crate::events::pvp::embeds::pvp_embed;
 use crate::events::pvp::models::PvPData;
 use crate::events::trials::components::trial_signup_components;
-use crate::events::trials::embeds::trial_embed;
 use crate::events::trials::models::TrialData;
 
 pub trait EventBasicData {
@@ -23,6 +20,66 @@ pub trait EventBasicData {
 pub trait EventSignups {
     fn signups(&self) -> Vec<Player>;
     fn remove_signup(&mut self, user: UserId);
+}
+
+pub trait FromBasicModal {
+    fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self;
+}
+
+pub trait FromComp {
+    fn from_comp_with_preview(components: &Vec<ActionRow>, message: Message) -> Self;
+}
+
+pub trait EventEmbed {
+    fn get_embed(&self) -> CreateEmbed;
+    fn get_embed_preview(&self) -> CreateEmbed;
+}
+
+pub trait EventComp {
+    fn get_comp_defaults_embed() -> CreateEmbed;
+    fn get_comp_new_components() -> Vec<CreateActionRow>;
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayersInRole {
+    players: Vec<Player>,
+    max: Option<usize>
+}
+
+impl PlayersInRole {
+    pub(crate) fn new(players: Vec<Player>, max: Option<usize>) -> Self {
+        PlayersInRole { players, max }
+    }
+    pub(crate) fn is_role_full(&self) -> bool {
+        self.max.is_some_and(|max| max <= self.players.len())
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.players.len()
+    }
+    pub(crate) fn max(&self) -> Option<usize> {
+        self.max
+    }
+    pub(crate) fn as_slice(&self) -> &[Player] {
+        self.players.as_slice()
+    }
+    pub(crate) fn push(&mut self, player: Player) {
+        self.players.push(player)
+    }
+}
+
+impl Into<Vec<Player>> for PlayersInRole {
+    fn into(self) -> Vec<Player> {
+        self.players
+    }
+}
+
+impl Default for PlayersInRole {
+    fn default() -> Self {
+        PlayersInRole {
+            players: vec![], max: None
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
@@ -44,14 +101,25 @@ pub enum EventKind {
     Trial(TrialData), Generic(EventGenericData), PvP(PvPData)
 }
 
-impl EventKind {
-    pub fn get_embed(&self) -> CreateEmbed {
+impl EventEmbed for EventKind {
+    fn get_embed(&self) -> CreateEmbed {
         match self {
-            EventKind::Trial(t) => trial_embed(t, false),
-            EventKind::Generic(g) => event_generic_embed(g, false),
-            EventKind::PvP(p) => pvp_embed(p, false)
+            EventKind::Trial(t) => t.get_embed(),
+            EventKind::Generic(g) => g.get_embed(),
+            EventKind::PvP(p) => p.get_embed()
         }
     }
+
+    fn get_embed_preview(&self) -> CreateEmbed {
+        match self {
+            EventKind::Trial(t) => t.get_embed_preview(),
+            EventKind::Generic(g) => g.get_embed_preview(),
+            EventKind::PvP(p) => p.get_embed_preview()
+        }
+    }
+}
+
+impl EventKind {
     pub fn get_components(&self) -> Vec<CreateActionRow> {
         match self {
             EventKind::Trial(_) => trial_signup_components(),
@@ -124,9 +192,9 @@ impl EventBasicData for EventKind {
     }
 }
 
-pub(super) fn remove_from_role(list: &mut Vec<Player>, user: UserId) {
-    let index = list.iter().position(|player| <Player as Into<UserId>>::into(player.clone()) == user);
+pub(super) fn remove_from_role(list: &mut PlayersInRole, user: UserId) {
+    let index = list.players.iter().position(|player| <Player as Into<UserId>>::into(player.clone()) == user);
     if let Some(index) = index {
-        list.remove(index);
+        list.players.remove(index);
     }
 }

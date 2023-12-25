@@ -3,7 +3,7 @@ mod pvp;
 mod generic;
 
 use serenity::all::{ComponentInteraction, ComponentInteractionDataKind, Context, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseFollowup, CreateInteractionResponseMessage};
-use crate::events::models::EventKind;
+use crate::events::models::{EventEmbed, EventKind};
 use crate::events::signup::EventBackupRoles;
 use crate::prelude::*;
 

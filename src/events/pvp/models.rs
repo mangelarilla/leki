@@ -1,10 +1,13 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serenity::all::{ActionRow, Message, UserId};
-use crate::events::models::{EventBasicData, EventSignups, Player, remove_from_role};
-use crate::events::parse::{get_max, parse_basic_from_modal, parse_player};
+use serenity::all::{ActionRow, CreateActionRow, CreateEmbed, Message, UserId};
+use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
+use crate::events::parse::{parse_basic_from_modal, parse_player, parse_players_in_role};
+use crate::events::pvp::components::pvp_new_comp_components;
+use crate::events::pvp::embeds::{pvp_comp_defaults, pvp_embed};
 use crate::events::pvp::PvPRole;
 use crate::events::signup::{EventBackupRoles, EventSignupRoles};
+use crate::prelude::get_input_value;
 
 #[derive(Debug)]
 pub struct PvPData {
@@ -13,37 +16,73 @@ pub struct PvPData {
     pub(crate) datetime: Option<DateTime<Utc>>,
     duration: DurationString,
     leader: UserId,
-    tanks: Vec<Player>,
-    brawlers: Vec<Player>,
-    bombers: Vec<Player>,
-    gankers: Vec<Player>,
-    healers: Vec<Player>,
-    max_tanks: usize,
-    max_healers: usize,
-    reserves: Vec<Player>,
-    absents: Vec<Player>,
+    tanks: PlayersInRole,
+    brawlers: PlayersInRole,
+    bombers: PlayersInRole,
+    gankers: PlayersInRole,
+    healers: PlayersInRole,
+    reserves: PlayersInRole,
+    absents: PlayersInRole,
 }
 
-impl PvPData {
-    pub fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
+impl FromBasicModal for PvPData {
+    fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
         let (title, description, duration) = parse_basic_from_modal(components);
-        
+
         PvPData {
             title,
             description,
             datetime: None,
             duration,
             leader,
-            tanks: vec![],
-            brawlers: vec![],
-            bombers: vec![],
-            healers: vec![],
-            max_tanks: 2,
-            max_healers: 3,
-            reserves: vec![],
-            absents: vec![],
-            gankers: vec![]
+            tanks: PlayersInRole::default(),
+            brawlers: PlayersInRole::default(),
+            bombers: PlayersInRole::default(),
+            healers: PlayersInRole::default(),
+            reserves: PlayersInRole::default(),
+            absents: PlayersInRole::default(),
+            gankers: PlayersInRole::default(),
         }
+    }
+}
+
+impl FromComp for PvPData {
+    fn from_comp_with_preview(components: &Vec<ActionRow>, message: Message) -> Self {
+        let mut pvp = PvPData::try_from(message).unwrap();
+
+        let tanks = get_input_value(components, 0);
+        let brawlers = get_input_value(components, 1);
+        let healers = get_input_value(components, 2);
+        let bombers = get_input_value(components, 2);
+        let gankers = get_input_value(components, 2);
+
+        pvp.tanks = PlayersInRole::new(vec![], tanks.map(|m| m.parse::<usize>().ok()).flatten());
+        pvp.brawlers = PlayersInRole::new(vec![], brawlers.map(|m| m.parse::<usize>().ok()).flatten());
+        pvp.healers = PlayersInRole::new(vec![], healers.map(|m| m.parse::<usize>().ok()).flatten());
+        pvp.bombers = PlayersInRole::new(vec![], bombers.map(|m| m.parse::<usize>().ok()).flatten());
+        pvp.gankers = PlayersInRole::new(vec![], gankers.map(|m| m.parse::<usize>().ok()).flatten());
+
+        pvp
+    }
+}
+
+impl EventEmbed for PvPData {
+    fn get_embed(&self) -> CreateEmbed {
+        pvp_embed(self, false)
+    }
+
+    fn get_embed_preview(&self) -> CreateEmbed {
+        pvp_embed(self, true)
+    }
+}
+
+impl EventComp for PvPData {
+    fn get_comp_defaults_embed() -> CreateEmbed {
+        pvp_comp_defaults()
+    }
+
+    fn get_comp_new_components() -> Vec<CreateActionRow> {
+        pvp_new_comp_components()
     }
 }
 
@@ -56,8 +95,8 @@ impl EventBasicData for PvPData {
 }
 
 impl EventBackupRoles for PvPData {
-    fn reserves(&self) -> Vec<Player> {self.reserves.clone()}
-    fn absents(&self) -> Vec<Player> {self.absents.clone()}
+    fn reserves(&self) -> Vec<Player> {self.reserves.clone().into()}
+    fn absents(&self) -> Vec<Player> {self.absents.clone().into()}
     fn add_absent(&mut self, user: UserId) {
         self.remove_signup(user);
         self.absents.push(Player::Basic(user))
@@ -70,8 +109,13 @@ impl EventBackupRoles for PvPData {
 
 impl EventSignups for PvPData {
     fn signups(&self) -> Vec<Player> {
-        [self.tanks.as_slice(), self.brawlers.as_slice(),
-            self.bombers.as_slice(), self.healers.as_slice(), self.gankers.as_slice()].concat()
+        [
+            self.tanks.clone().as_slice(),
+            self.brawlers.clone().as_slice(),
+            self.bombers.clone().as_slice(),
+            self.healers.clone().as_slice(),
+            self.gankers.clone().as_slice()
+        ].concat()
     }
 
     fn remove_signup(&mut self, user: UserId) {
@@ -88,9 +132,11 @@ impl EventSignups for PvPData {
 impl EventSignupRoles<PvPRole> for PvPData {
     fn is_role_full(&self, role: PvPRole) -> bool {
         match role {
-            PvPRole::Tank => self.max_tanks == self.tanks.len(),
-            PvPRole::Healer => self.max_healers == self.healers.len(),
-            _ => false,
+            PvPRole::Tank => self.tanks.is_role_full(),
+            PvPRole::Healer => self.healers.is_role_full(),
+            PvPRole::Brawler => self.brawlers.is_role_full(),
+            PvPRole::Bomber => self.bombers.is_role_full(),
+            PvPRole::Ganker => self.gankers.is_role_full()
         }
     }
 
@@ -116,23 +162,13 @@ impl EventSignupRoles<PvPRole> for PvPData {
         }
     }
 
-    fn role(&self, role: PvPRole) -> &Vec<Player> {
+    fn role(&self, role: PvPRole) -> &PlayersInRole {
         match role {
             PvPRole::Tank => &self.tanks,
             PvPRole::Healer => &self.healers,
             PvPRole::Brawler => &self.brawlers,
             PvPRole::Bomber => &self.bombers,
             PvPRole::Ganker => &self.gankers
-        }
-    }
-
-    fn max(&self, role: PvPRole) -> usize {
-        match role {
-            PvPRole::Tank => self.max_tanks,
-            PvPRole::Healer => self.max_healers,
-            PvPRole::Brawler => 0,
-            PvPRole::Bomber => 0,
-            PvPRole::Ganker => 0
         }
     }
 }
@@ -161,15 +197,13 @@ impl TryFrom<Message> for PvPData {
             datetime: datetime.map(|dt| DateTime::from_timestamp(dt, 0).unwrap()),
             duration: fields.get(1).unwrap().value.parse::<DurationString>().unwrap(),
             leader: parse_player(&fields.get(2).unwrap().value).into(),
-            tanks: tanks.value.clone().lines().map(|s| parse_player(s)).collect(),
-            max_tanks: get_max(&tanks.name).parse::<usize>().unwrap(),
-            brawlers: brawlers.value.clone().lines().map(|s| parse_player(s)).collect(),
-            bombers: bombers.value.clone().lines().map(|s| parse_player(s)).collect(),
-            gankers: gankers.value.clone().lines().map(|s| parse_player(s)).collect(),
-            healers: healers.value.clone().lines().map(|s| parse_player(s)).collect(),
-            max_healers: get_max(&healers.name).parse::<usize>().unwrap(),
-            reserves: reserves.value.clone().lines().map(|s| parse_player(s)).collect(),
-            absents: absents.value.clone().lines().map(|s| parse_player(s)).collect()
+            tanks: parse_players_in_role(tanks),
+            brawlers: parse_players_in_role(brawlers),
+            bombers: parse_players_in_role(bombers),
+            gankers: parse_players_in_role(gankers),
+            healers: parse_players_in_role(healers),
+            reserves: parse_players_in_role(reserves),
+            absents: parse_players_in_role(absents),
         })
     }
 }

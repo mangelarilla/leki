@@ -37,6 +37,16 @@ pub fn pvp_signup_components() -> Vec<CreateActionRow> {
     vec![class_row, event_components_backup()]
 }
 
+pub(crate) fn pvp_new_comp_components() -> Vec<CreateActionRow> {
+    vec![
+        short_input("Max Tanks", "pvp_max_tanks", "2 (Por defecto no hay maximo)", false),
+        short_input("Max Brawlers", "pvp_max_brawlers", "(Por defecto no hay maximo)", false),
+        short_input("Max Healers", "pvp_max_healers", "3 (Por defecto no hay maximo)", false),
+        short_input("Max Bombers", "pvp_max_bombers", "(Por defecto no hay maximo)", false),
+        short_input("Max Gankers", "pvp_max_gankers", "(Por defecto no hay maximo)", false)
+    ]
+}
+
 pub fn pvp_participants_components(tanks_id: &str, brawlers_id: &str, healers_id: &str, bombers_id: &str, gankers_id: &str, id: &str) -> Vec<CreateActionRow> {
     vec![
         get_roster_select(tanks_id, "Tanques titulares", 2),

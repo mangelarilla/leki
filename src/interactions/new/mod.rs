@@ -3,11 +3,11 @@ mod pvp;
 mod generic;
 
 use std::sync::Arc;
-use serenity::all::{ActionRowComponent, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateMessage, CreateSelectMenu, Mention, ModalInteraction, UserId};
+use serenity::all::{ActionRowComponent, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateMessage, CreateModal, CreateSelectMenu, Mention, ModalInteraction, UserId};
 use serenity::builder::CreateInteractionResponseMessage;
-use crate::events::components::{event_components_backup, new_event_components, time_options};
+use crate::events::components::{event_comp_defaults_components, event_components_backup, event_scope_components, new_event_components, time_options};
 use crate::events::embeds::new_event_embed;
-use crate::events::models::{EventBasicData, EventKind};
+use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventKind, FromBasicModal, FromComp};
 use crate::interactions::{create_discord_event};
 use crate::prelude::*;
 use crate::tasks;
@@ -104,9 +104,45 @@ async fn create_event(interaction: &ComponentInteraction, ctx: &Context, is_pvp:
     Ok(CreateInteractionResponse::UpdateMessage(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .add_embed(CreateEmbed::new().title("Nuevo evento!").description(format!("## Evento creado en {}", Mention::Channel(channel).to_string())))
+            .add_embed(CreateEmbed::new().title("Nuevo evento!").description(format!("Evento creado en {}", Mention::Channel(channel).to_string())))
             .components(remaining_times)
     ))
+}
+
+fn request_event_comp_and_create_preview<T: FromBasicModal + EventEmbed + EventComp>(
+    interaction: &ModalInteraction, id_confirm: impl Into<String>, id_change: impl Into<String>) -> CreateInteractionResponse {
+    let event = T::from_basic_modal(&interaction.data.components, interaction.user.id);
+    let response = CreateInteractionResponseMessage::new()
+        .add_embed(event.get_embed_preview())
+        .add_embed(T::get_comp_defaults_embed())
+        .components(event_comp_defaults_components(id_confirm, id_change));
+
+    CreateInteractionResponse::UpdateMessage(response)
+}
+
+fn request_event_scope(interaction: &ComponentInteraction, id_public: impl Into<String>, id_semi_public: impl Into<String>, id_private: impl Into<String>) -> CreateInteractionResponse {
+    let event = EventKind::try_from(*interaction.message.clone()).unwrap();
+    let response = CreateInteractionResponseMessage::new()
+        .embed(event.get_embed_preview())
+        .components(event_scope_components(id_public, id_semi_public, id_private));
+
+    CreateInteractionResponse::UpdateMessage(response)
+}
+
+fn update_preview_and_request_event_scope<T: FromComp + EventEmbed>(interaction: &ModalInteraction, id_public: impl Into<String>, id_semi_public: impl Into<String>, id_private: impl Into<String>) -> CreateInteractionResponse {
+    let event = T::from_comp_with_preview(&interaction.data.components, *interaction.message.clone().unwrap());
+    let response = CreateInteractionResponseMessage::new()
+        .embed(event.get_embed_preview())
+        .components(event_scope_components(id_public, id_semi_public, id_private));
+
+    CreateInteractionResponse::UpdateMessage(response)
+}
+
+fn request_new_comp<T: EventComp>(id: impl Into<String>) -> CreateInteractionResponse {
+    let response = CreateModal::new(id, "Nueva Composicion")
+        .components(T::get_comp_new_components());
+
+    CreateInteractionResponse::Modal(response)
 }
 
 fn get_selected_users(interaction: &ComponentInteraction) -> Option<Vec<UserId>> {

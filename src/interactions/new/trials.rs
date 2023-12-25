@@ -1,6 +1,6 @@
 use serenity::all::{ComponentInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, ModalInteraction};
-use crate::events::components::{event_scope_components, select_event_channel};
-use crate::events::models::EventBasicData;
+use crate::events::components::{select_event_channel};
+use crate::events::models::{EventBasicData};
 use crate::events::signup::EventSignupRoles;
 use crate::events::trials::components::{trial_basic_info_components, trial_participants_components};
 use crate::events::trials::embeds::{trial_embed};
@@ -29,6 +29,8 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
             "semi_public_confirm" => Ok(request_day_channel()),
             "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
             "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
+            "comp_confirm" => Ok(super::request_event_scope(interaction, prefixed("public"), prefixed("semi_public"), prefixed("private"))),
+            "comp_change" => Ok(super::request_new_comp::<TrialData>(prefixed("comp_new"))),
             _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
         }
     }?;
@@ -41,7 +43,8 @@ pub(super) async fn handle_modal(interaction: &ModalInteraction, _ctx: &Context)
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
     let response = match event_id.as_str() {
-        "basic_info" => Ok(request_trial_scope_and_create_preview(interaction)),
+        "basic_info" => Ok(super::request_event_comp_and_create_preview::<TrialData>(interaction, prefixed("comp_confirm"), prefixed("comp_change"))),
+        "comp_new" => Ok(super::update_preview_and_request_event_scope::<TrialData>(interaction, prefixed("public"), prefixed("semi_public"), prefixed("private"))),
         _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
     }?;
 
@@ -102,15 +105,6 @@ fn request_private_roster_choices() -> CreateInteractionResponse {
             &prefixed("private_tanks"), &prefixed("private_dd"), &prefixed("private_healers"),
             &prefixed("private_confirm")
         ));
-
-    CreateInteractionResponse::UpdateMessage(response)
-}
-
-fn request_trial_scope_and_create_preview(interaction: &ModalInteraction) -> CreateInteractionResponse {
-    let trial = TrialData::from_basic_modal(&interaction.data.components, interaction.user.id);
-    let response = CreateInteractionResponseMessage::new()
-        .add_embed(trial_embed(&trial, true))
-        .components(event_scope_components(&prefixed("public"), &prefixed("semi_public"), &prefixed("private")));
 
     CreateInteractionResponse::UpdateMessage(response)
 }

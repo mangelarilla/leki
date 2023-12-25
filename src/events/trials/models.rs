@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serenity::all::{ActionRow, Message, UserId};
-use crate::events::models::{EventBasicData, EventSignups, Player, remove_from_role};
-use crate::events::parse::{empty_to_option, get_max, parse_basic_from_modal, parse_player};
+use serenity::all::{ActionRow, CreateActionRow, CreateEmbed, Message, UserId};
+use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
+use crate::events::parse::{empty_to_option, parse_basic_from_modal, parse_player, parse_players_in_role};
 use crate::events::signup::{EventBackupRoles, EventSignupRoles};
+use crate::events::trials::components::trial_new_comp_components;
+use crate::events::trials::embeds::{trial_comp_defaults, trial_embed};
 use crate::events::trials::TrialRole;
 use crate::prelude::get_input_value;
 
@@ -16,18 +18,20 @@ pub struct TrialData {
     leader: UserId,
     guides: Option<String>,
     addons: Option<String>,
-    tanks: Vec<Player>,
-    dds: Vec<Player>,
-    healers: Vec<Player>,
-    max_tanks: usize,
-    max_dds: usize,
-    max_healers: usize,
-    reserves: Vec<Player>,
-    absents: Vec<Player>,
+    tanks: PlayersInRole,
+    dds: PlayersInRole,
+    healers: PlayersInRole,
+    reserves: PlayersInRole,
+    absents: PlayersInRole,
 }
 
 impl TrialData {
-    pub fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
+    pub fn guides(&self) -> Option<String> {self.guides.clone()}
+    pub fn addons(&self) -> Option<String> {self.addons.clone()}
+}
+
+impl FromBasicModal for TrialData {
+    fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
         let (title, description, duration) = parse_basic_from_modal(components);
         let addons = get_input_value(components, 3);
         let guides = get_input_value(components, 4);
@@ -40,19 +44,49 @@ impl TrialData {
             leader,
             guides,
             addons,
-            tanks: vec![],
-            dds: vec![],
-            healers: vec![],
-            max_tanks: 2,
-            max_dds: 8,
-            max_healers: 2,
-            reserves: vec![],
-            absents: vec![],
+            tanks: PlayersInRole::new(vec![], Some(2)),
+            dds: PlayersInRole::new(vec![], Some(8)),
+            healers: PlayersInRole::new(vec![], Some(2)),
+            reserves: PlayersInRole::default(),
+            absents: PlayersInRole::default()
         }
     }
+}
 
-    pub fn guides(&self) -> Option<String> {self.guides.clone()}
-    pub fn addons(&self) -> Option<String> {self.addons.clone()}
+impl FromComp for TrialData {
+    fn from_comp_with_preview(components: &Vec<ActionRow>, message: Message) -> Self {
+        let mut trial = TrialData::try_from(message).unwrap();
+
+        let tanks = get_input_value(components, 0);
+        let dds = get_input_value(components, 1);
+        let healers = get_input_value(components, 2);
+
+        trial.tanks = PlayersInRole::new(vec![], tanks.map(|m| m.parse::<usize>().ok()).flatten());
+        trial.dds = PlayersInRole::new(vec![], dds.map(|m| m.parse::<usize>().ok()).flatten());
+        trial.healers = PlayersInRole::new(vec![], healers.map(|m| m.parse::<usize>().ok()).flatten());
+
+        trial
+    }
+}
+
+impl EventEmbed for TrialData {
+    fn get_embed(&self) -> CreateEmbed {
+        trial_embed(self, false)
+    }
+
+    fn get_embed_preview(&self) -> CreateEmbed {
+        trial_embed(self, true)
+    }
+}
+
+impl EventComp for TrialData {
+    fn get_comp_defaults_embed() -> CreateEmbed {
+        trial_comp_defaults()
+    }
+
+    fn get_comp_new_components() -> Vec<CreateActionRow> {
+        trial_new_comp_components()
+    }
 }
 
 impl EventBasicData for TrialData {
@@ -64,8 +98,8 @@ impl EventBasicData for TrialData {
 }
 
 impl EventBackupRoles for TrialData {
-    fn reserves(&self) -> Vec<Player> {self.reserves.clone()}
-    fn absents(&self) -> Vec<Player> {self.absents.clone()}
+    fn reserves(&self) -> Vec<Player> {self.reserves.clone().into()}
+    fn absents(&self) -> Vec<Player> {self.absents.clone().into()}
     fn add_absent(&mut self, user: UserId) {
         self.remove_signup(user);
         self.absents.push(Player::Basic(user))
@@ -78,7 +112,11 @@ impl EventBackupRoles for TrialData {
 
 impl EventSignups for TrialData {
     fn signups(&self) -> Vec<Player> {
-        [self.tanks.as_slice(), self.dds.as_slice(), self.healers.as_slice()].concat()
+        [
+            self.tanks.clone().as_slice(),
+            self.dds.clone().as_slice(),
+            self.healers.clone().as_slice()
+        ].concat()
     }
 
     fn remove_signup(&mut self, user: UserId) {
@@ -93,9 +131,9 @@ impl EventSignups for TrialData {
 impl EventSignupRoles<TrialRole> for TrialData {
     fn is_role_full(&self, role: TrialRole) -> bool {
         match role {
-            TrialRole::Tank => self.max_tanks == self.tanks.len(),
-            TrialRole::DD => self.max_dds == self.dds.len(),
-            TrialRole::Healer => self.max_healers == self.healers.len()
+            TrialRole::Tank => self.tanks.is_role_full(),
+            TrialRole::DD => self.dds.is_role_full(),
+            TrialRole::Healer => self.healers.is_role_full()
         }
     }
 
@@ -117,19 +155,11 @@ impl EventSignupRoles<TrialRole> for TrialData {
         }
     }
 
-    fn role(&self, role: TrialRole) -> &Vec<Player> {
+    fn role(&self, role: TrialRole) -> &PlayersInRole {
         match role {
             TrialRole::Tank => &self.tanks,
             TrialRole::DD => &self.dds,
             TrialRole::Healer => &self.healers
-        }
-    }
-
-    fn max(&self, role: TrialRole) -> usize {
-        match role {
-            TrialRole::Tank => self.max_tanks,
-            TrialRole::DD => self.max_dds,
-            TrialRole::Healer => self.max_healers
         }
     }
 }
@@ -158,14 +188,11 @@ impl TryFrom<Message> for TrialData {
             leader: parse_player(&fields.get(2).unwrap().value).into(),
             guides: empty_to_option(fields.get(3).unwrap().value.clone()),
             addons: empty_to_option(fields.get(4).unwrap().value.clone()),
-            tanks: tanks.value.clone().lines().map(|s| parse_player(s)).collect(),
-            max_tanks: get_max(&tanks.name).parse::<usize>().unwrap(),
-            dds: dds.value.clone().lines().map(|s| parse_player(s)).collect(),
-            max_dds: get_max(&dds.name).parse::<usize>().unwrap(),
-            healers: healers.value.clone().lines().map(|s| parse_player(s)).collect(),
-            max_healers: get_max(&healers.name).parse::<usize>().unwrap(),
-            reserves: reserves.value.clone().lines().map(|s| parse_player(s)).collect(),
-            absents: absents.value.clone().lines().map(|s| parse_player(s)).collect()
+            tanks: parse_players_in_role(tanks),
+            dds: parse_players_in_role(dds),
+            healers: parse_players_in_role(healers),
+            reserves: parse_players_in_role(reserves),
+            absents: parse_players_in_role(absents),
         })
     }
 }

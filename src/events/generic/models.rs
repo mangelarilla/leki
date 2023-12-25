@@ -1,8 +1,9 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serenity::all::{ActionRow, Message, UserId};
-use crate::events::models::{EventBasicData, EventSignups, Player, remove_from_role};
-use crate::events::parse::{parse_basic_from_modal, parse_player};
+use serenity::all::{ActionRow, CreateEmbed, Message, UserId};
+use crate::events::generic::embeds::event_generic_embed;
+use crate::events::models::{EventBasicData, EventEmbed, EventSignups, FromBasicModal, Player, PlayersInRole, remove_from_role};
+use crate::events::parse::{parse_basic_from_modal, parse_player, parse_players_in_role};
 use crate::events::signup::EventBackupRoles;
 
 #[derive(Debug)]
@@ -12,13 +13,20 @@ pub struct EventGenericData {
     pub(crate) datetime: Option<DateTime<Utc>>,
     duration: DurationString,
     leader: UserId,
-    signed: Vec<Player>,
-    reserves: Vec<Player>,
-    absents: Vec<Player>,
+    signed: PlayersInRole,
+    reserves: PlayersInRole,
+    absents: PlayersInRole,
 }
 
 impl EventGenericData {
-    pub fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
+    pub fn signup(&mut self, user: UserId) {
+        self.remove_signup(user);
+        self.signed.push(Player::Basic(user));
+    }
+}
+
+impl FromBasicModal for EventGenericData {
+    fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
         let (title, description, duration) = parse_basic_from_modal(components);
 
         EventGenericData {
@@ -26,15 +34,21 @@ impl EventGenericData {
             description,
             duration,
             leader,
-            signed: vec![],
-            absents: vec![],
-            reserves: vec![],
+            signed: PlayersInRole::default(),
+            absents: PlayersInRole::default(),
+            reserves: PlayersInRole::default(),
             datetime: None
         }
     }
-    pub fn signup(&mut self, user: UserId) {
-        self.remove_signup(user);
-        self.signed.push(Player::Basic(user));
+}
+
+impl EventEmbed for EventGenericData {
+    fn get_embed(&self) -> CreateEmbed {
+        event_generic_embed(self, false)
+    }
+
+    fn get_embed_preview(&self) -> CreateEmbed {
+        event_generic_embed(self, true)
     }
 }
 
@@ -47,8 +61,8 @@ impl EventBasicData for EventGenericData {
 }
 
 impl EventBackupRoles for EventGenericData {
-    fn reserves(&self) -> Vec<Player> {self.reserves.clone()}
-    fn absents(&self) -> Vec<Player> {self.absents.clone()}
+    fn reserves(&self) -> Vec<Player> {self.reserves.clone().into()}
+    fn absents(&self) -> Vec<Player> {self.absents.clone().into()}
     fn add_absent(&mut self, user: UserId) {
         self.remove_signup(user);
         self.absents.push(Player::Basic(user))
@@ -60,7 +74,7 @@ impl EventBackupRoles for EventGenericData {
 }
 
 impl EventSignups for EventGenericData {
-    fn signups(&self) -> Vec<Player> {self.signed.clone()}
+    fn signups(&self) -> Vec<Player> {self.signed.clone().into()}
     fn remove_signup(&mut self, user: UserId) {
         remove_from_role(&mut self.signed, user);
         remove_from_role(&mut self.absents, user);
@@ -88,9 +102,9 @@ impl TryFrom<Message> for EventGenericData {
             datetime: datetime.map(|dt| DateTime::from_timestamp(dt, 0).unwrap()),
             duration: fields.get(1).unwrap().value.parse::<DurationString>().unwrap(),
             leader: parse_player(&fields.get(2).unwrap().value).into(),
-            signed: signed.value.clone().lines().map(|s| parse_player(s)).collect(),
-            reserves: reserves.value.clone().lines().map(|s| parse_player(s)).collect(),
-            absents: absents.value.clone().lines().map(|s| parse_player(s)).collect()
+            signed: parse_players_in_role(signed),
+            reserves: parse_players_in_role(reserves),
+            absents: parse_players_in_role(absents),
         })
     }
 }

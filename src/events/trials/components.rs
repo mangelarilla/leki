@@ -25,6 +25,14 @@ pub fn trial_basic_info_components() -> Vec<CreateActionRow> {
     ]
 }
 
+pub(crate) fn trial_new_comp_components() -> Vec<CreateActionRow> {
+    vec![
+        short_input("Max Tanks", "trial_max_tanks", "2", false),
+        short_input("Max DD", "trial_max_dd", "8", false),
+        short_input("Max Healers", "trial_max_healers", "2", false)
+    ]
+}
+
 pub fn trial_signup_components() -> Vec<CreateActionRow> {
     let class_row = CreateActionRow::Buttons(vec![
         CreateButton::new("signup_trial_tank")
