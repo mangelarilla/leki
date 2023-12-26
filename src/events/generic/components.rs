@@ -17,5 +17,5 @@ pub fn event_generic_signup_components(id: &str) -> Vec<CreateActionRow> {
             .style(ButtonStyle::Success),
     ]);
 
-    vec![signup, event_components_backup()]
+    vec![signup, event_components_backup("signup_generic_reserve")]
 }

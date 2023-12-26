@@ -2,12 +2,14 @@ mod trials;
 mod pvp;
 mod generic;
 
+use std::fmt::Debug;
 use std::sync::Arc;
-use serenity::all::{ActionRowComponent, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateMessage, CreateModal, CreateSelectMenu, Mention, ModalInteraction, UserId};
+use serenity::all::{ActionRowComponent, CommandInteraction, ComponentInteraction, ComponentInteractionDataKind, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateMessage, CreateModal, CreateSelectMenu, Mention, Message, ModalInteraction, UserId};
 use serenity::builder::CreateInteractionResponseMessage;
 use crate::events::components::{event_comp_defaults_components, event_components_backup, event_scope_components, new_event_components, time_options};
 use crate::events::embeds::new_event_embed;
-use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventKind, FromBasicModal, FromComp};
+use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventKind, EventRole, FromBasicModal, FromComp, Player};
+use crate::events::signup::EventSignupRoles;
 use crate::interactions::{create_discord_event};
 use crate::prelude::*;
 use crate::tasks;
@@ -84,7 +86,7 @@ async fn create_event(interaction: &ComponentInteraction, ctx: &Context, is_pvp:
     let msg = channel.send_message(&ctx.http, CreateMessage::new()
         .embed(data.get_embed())
         .components(if data.title().starts_with("[Roster Cerrado]") {
-            vec![event_components_backup()]
+            vec![event_components_backup(if is_pvp {"signup_pvp_reserve"} else {"signup_trial_reserve"})]
         } else { data.get_components() })
     ).await.unwrap();
     create_discord_event(guild, ctx, &data, next_date, channel, msg.id, is_pvp).await?;
@@ -149,4 +151,21 @@ fn get_selected_users(interaction: &ComponentInteraction) -> Option<Vec<UserId>>
     if let ComponentInteractionDataKind::UserSelect {values} = &interaction.data.kind {
         Some(values.clone())
     } else { None }
+}
+
+fn update_preview_with_role<T: TryFrom<Message> + EventEmbed + EventSignupRoles + Debug>(interaction: &ComponentInteraction, role: EventRole) -> CreateInteractionResponse {
+    let selected_users = get_selected_users(interaction);
+    let response = if let Some(users) = selected_users {
+        if let Ok(mut event) = T::try_from(*interaction.message.clone()) {
+            for user in users {
+                event.signup(role, Player::Basic(user));
+            }
+            CreateInteractionResponseMessage::new()
+                .embed(event.get_embed_preview())
+        } else { CreateInteractionResponseMessage::new() }
+    } else {
+        CreateInteractionResponseMessage::new()
+    };
+
+    CreateInteractionResponse::UpdateMessage(response)
 }

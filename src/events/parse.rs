@@ -1,9 +1,10 @@
+use std::str::FromStr;
 use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::all::{ActionRow, EmbedField, Message, UserId};
 use crate::events::generic::models::EventGenericData;
-use crate::events::models::{EventKind, Player, PlayersInRole};
+use crate::events::models::{EventKind, EventRole, Player, PlayersInRole};
 use crate::events::pvp::models::PvPData;
 use crate::events::trials::models::TrialData;
 use crate::prelude::get_input_value;
@@ -22,7 +23,10 @@ impl From<Message> for EventKind {
 }
 
 pub(crate) fn parse_players_in_role(field: &EmbedField) -> PlayersInRole {
-    let players = field.value.clone().lines().map(|s| parse_player(s)).collect();
+    tracing::info!("parse_players_in_role: {field:?}");
+    let players = field.value.clone().lines()
+        .filter(|s| !s.is_empty())
+        .map(|s| parse_player(s)).collect();
     let max = get_max(&field.name).map(|max| max.parse::<usize>().ok()).flatten();
     PlayersInRole::new(players, max)
 }
@@ -49,7 +53,7 @@ pub(super) fn parse_basic_from_modal(components: &Vec<ActionRow>) -> (String, St
 pub fn parse_player(text: &str) -> Player {
     tracing::info!("parse_player: {text}");
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>").unwrap();
+        static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>(?:\s\(Flex:\s)*(?P<flex_roles>.+)*(?:\))*").unwrap();
     }
     RE.captures(text).and_then(|cap| Option::from({
         let class = cap.name("class")
@@ -57,8 +61,15 @@ pub fn parse_player(text: &str) -> Player {
         let user = cap.name("player")
             .map(|max| UserId::new(max.as_str().parse::<u64>().unwrap()))
             .unwrap();
+        let flex_roles = cap.name("flex_roles")
+            .map(|roles| roles.as_str()
+                .split(",")
+                .filter_map(|r| EventRole::from_str(r).ok())
+                .collect()
+            )
+            .unwrap_or(vec![]);
         if let Some(class) = class {
-            Player::Class(user, class)
+            Player::Class(user, class, flex_roles)
         } else {
             Player::Basic(user)
         }

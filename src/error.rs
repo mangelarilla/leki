@@ -11,5 +11,7 @@ pub enum Error {
     #[error("Role `{0}` is full")]
     RoleFull(String),
     #[error("Interaction not registered `{0}`")]
-    UnknownInteraction(String)
+    UnknownInteraction(String),
+    #[error("EventRole not registered `{0}`")]
+    UnknownRole(String)
 }

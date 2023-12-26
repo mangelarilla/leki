@@ -1,7 +1,10 @@
+use std::fmt::{Display};
+use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
 use serenity::all::{ActionRow, CreateActionRow, Message, UserId};
 use serenity::builder::CreateEmbed;
+use crate::error::Error;
 use crate::events::generic::components::event_generic_signup_components;
 use crate::events::generic::models::EventGenericData;
 use crate::events::pvp::components::pvp_signup_components;
@@ -46,6 +49,41 @@ pub struct PlayersInRole {
     max: Option<usize>
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum EventRole {
+    Tank, Healer, Brawler, Bomber, Ganker, DD
+}
+
+impl FromStr for EventRole {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Tanks" => Ok(EventRole::Tank),
+            "Brawlers" => Ok(EventRole::Brawler),
+            "Healers" => Ok(EventRole::Healer),
+            "Bombers" => Ok(EventRole::Bomber),
+            "Gankers" => Ok(EventRole::Ganker),
+            "DD" => Ok(EventRole::DD),
+            _ => Err(Error::UnknownRole(s.to_string()))
+        }
+    }
+}
+
+impl Display for EventRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            EventRole::Tank => "Tanks",
+            EventRole::Healer => "Healers",
+            EventRole::Brawler => "Brawlers",
+            EventRole::Bomber => "Bombers",
+            EventRole::Ganker => "Gankers",
+            EventRole::DD => "DD",
+        }.to_string();
+        write!(f, "{}", str)
+    }
+}
+
 impl PlayersInRole {
     pub(crate) fn new(players: Vec<Player>, max: Option<usize>) -> Self {
         PlayersInRole { players, max }
@@ -85,18 +123,19 @@ impl Default for PlayersInRole {
 #[derive(Clone, Debug, PartialOrd, PartialEq)]
 pub enum Player {
     Basic(UserId),
-    Class(UserId, String)
+    Class(UserId, String, Vec<EventRole>)
 }
 
 impl Into<UserId> for Player {
     fn into(self) -> UserId {
         match self {
             Player::Basic(user) => user,
-            Player::Class(user, _) => user
+            Player::Class(user, _, _) => user
         }
     }
 }
 
+#[derive(Debug)]
 pub enum EventKind {
     Trial(TrialData), Generic(EventGenericData), PvP(PvPData)
 }

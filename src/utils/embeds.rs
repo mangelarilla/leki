@@ -1,5 +1,5 @@
 use serenity::all::{Colour, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, Timestamp};
-use crate::events::models::{EventBasicData, Player};
+use crate::events::models::{EventBasicData, EventRole, Player};
 use crate::events::signup::EventBackupRoles;
 
 pub(crate) fn event_embed_basic(data: &impl EventBasicData, is_preview: bool) -> CreateEmbed {
@@ -35,11 +35,20 @@ pub(crate) fn format_players_embed(players: &Vec<Player>) -> String {
         .map(|player| {
             match player {
                 Player::Basic(user) => format!("└ <@{user}>"),
-                Player::Class(user, class) => format!("└{class} <@{user}>")
+                Player::Class(user, class, flex) => format!("└{class} <@{user}> {}", format_flex(flex))
             }
         })
         .collect::<Vec<String>>()
         .join("\n")
+}
+
+fn format_flex(roles: &Vec<EventRole>) -> String {
+    if roles.is_empty() {
+        String::new()
+    } else {
+        let role_strings = roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
+        format!("(Flex: {})", role_strings.join(","))
+    }
 }
 
 pub(crate) fn basic(title: &str, description: &str) -> CreateEmbed {

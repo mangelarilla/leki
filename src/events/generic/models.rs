@@ -67,9 +67,9 @@ impl EventBackupRoles for EventGenericData {
         self.remove_signup(user);
         self.absents.push(Player::Basic(user))
     }
-    fn add_reserve(&mut self, user: UserId) {
-        self.remove_signup(user);
-        self.reserves.push(Player::Basic(user))
+    fn add_reserve(&mut self, player: Player) {
+        self.remove_signup(player.clone().into());
+        self.reserves.push(player)
     }
 }
 
@@ -90,7 +90,7 @@ impl TryFrom<Message> for EventGenericData {
         let fields = &event_embed.fields;
         let datetime = fields.get(0).unwrap().value.clone()
             .replace("<t:", "")
-            .replace(":f>", "")
+            .replace(":F>", "")
             .parse::<i64>().ok();
         let signed = fields.get(5).unwrap();
         let reserves = fields.get(6).unwrap();

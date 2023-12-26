@@ -1,4 +1,5 @@
 use serenity::all::{ButtonStyle, ChannelId, ChannelType, CreateActionRow, CreateButton, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, ReactionType};
+use crate::events::models::EventRole;
 
 pub(crate) fn new_event_components(trial_id: impl Into<String>, pvp_id: impl Into<String>, generic_id: impl Into<String>) -> Vec<CreateActionRow> {
     vec![CreateActionRow::Buttons(vec![
@@ -37,9 +38,9 @@ pub(crate) fn event_comp_defaults_components(id_confirm: impl Into<String>, id_c
     ]
 }
 
-pub(crate) fn event_components_backup() -> CreateActionRow {
+pub(crate) fn event_components_backup(id_reserve: &str) -> CreateActionRow {
     CreateActionRow::Buttons(vec![
-        CreateButton::new("signup_reserve")
+        CreateButton::new(id_reserve)
             .label("Reserva")
             .style(ButtonStyle::Secondary)
             .emoji(ReactionType::Unicode("👋".to_string())),
@@ -78,7 +79,7 @@ pub(crate) fn select_time(id: &str, selected_days: &Vec<(ChannelId, String)>) ->
     builder
 }
 
-pub(crate) fn select_player_class(id: &str) -> Vec<CreateActionRow> {
+pub(crate) fn select_player_class(id: impl Into<String>) -> CreateActionRow {
     let class_selector = CreateSelectMenuKind::String {
         options: vec![
             class_option("Arcanist", "Arcanista", 1154134563392606218, "arcanist"),
@@ -91,11 +92,22 @@ pub(crate) fn select_player_class(id: &str) -> Vec<CreateActionRow> {
         ]
     };
 
-    vec![
-        CreateActionRow::SelectMenu(CreateSelectMenu::new(id, class_selector)
-            .max_values(1)
-            .placeholder("Selecciona clase"))
-    ]
+
+    CreateActionRow::SelectMenu(CreateSelectMenu::new(id, class_selector)
+        .max_values(1)
+        .placeholder("Selecciona clase"))
+}
+
+pub(crate) fn select_flex_roles(id: impl Into<String>, roles: &[EventRole]) -> CreateActionRow {
+    let role_selector = CreateSelectMenuKind::String {
+        options: roles.into_iter().map(|r|
+            CreateSelectMenuOption::new(r.to_string(), r.to_string())
+        ).collect()
+    };
+
+    CreateActionRow::SelectMenu(CreateSelectMenu::new(id, role_selector)
+        .placeholder("(Opcional) Roles de reserva")
+        .max_values(5))
 }
 
 pub(crate) fn time_options() -> CreateSelectMenuKind {

@@ -49,5 +49,5 @@ pub fn trial_signup_components() -> Vec<CreateActionRow> {
             .emoji(ReactionType::Custom { animated: false, id: EmojiId::new(1154134924153065544), name: Some("healer".to_string())})
     ]);
 
-    vec![class_row, event_components_backup()]
+    vec![class_row, event_components_backup("signup_trial_healer")]
 }

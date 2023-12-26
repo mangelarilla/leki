@@ -1,12 +1,9 @@
 use serenity::all::{ComponentInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, ModalInteraction};
 use crate::events::components::{select_event_channel};
-use crate::events::models::{EventBasicData};
-use crate::events::signup::EventSignupRoles;
+use crate::events::models::{EventBasicData, EventRole};
 use crate::events::trials::components::{trial_basic_info_components, trial_participants_components};
 use crate::events::trials::embeds::{trial_embed};
 use crate::events::trials::models::TrialData;
-use crate::events::trials::TrialRole;
-use crate::interactions::new::{get_selected_users, request_event_times};
 use crate::prelude::*;
 
 const PREFIX: &'static str = "trial_";
@@ -23,12 +20,12 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
             "public" => Ok(request_day_channel()),
             "semi_public" => Ok(request_semi_public_roster_choices()),
             "private" => Ok(request_private_roster_choices()),
-            "semi_public_tanks" | "private_tanks" => Ok(update_preview_with_role(interaction, TrialRole::Tank)),
-            "semi_public_dd" | "private_dd" => Ok(update_preview_with_role(interaction, TrialRole::DD)),
-            "semi_public_healers" | "private_healers" => Ok(update_preview_with_role(interaction, TrialRole::Healer)),
+            "semi_public_tanks" | "private_tanks" => Ok(super::update_preview_with_role::<TrialData>(interaction, EventRole::Tank)),
+            "semi_public_dd" | "private_dd" => Ok(super::update_preview_with_role::<TrialData>(interaction, EventRole::DD)),
+            "semi_public_healers" | "private_healers" => Ok(super::update_preview_with_role::<TrialData>(interaction, EventRole::Healer)),
             "semi_public_confirm" => Ok(request_day_channel()),
             "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
-            "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
+            "event_day" => Ok(super::request_event_times(&prefixed("times"), ctx, interaction).await?),
             "comp_confirm" => Ok(super::request_event_scope(interaction, prefixed("public"), prefixed("semi_public"), prefixed("private"))),
             "comp_change" => Ok(super::request_new_comp::<TrialData>(prefixed("comp_new"))),
             _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
@@ -53,22 +50,6 @@ pub(super) async fn handle_modal(interaction: &ModalInteraction, _ctx: &Context)
 
 fn prefixed(id: &str) -> String {
     format!("{}{}{}", super::PREFIX, PREFIX, id)
-}
-
-fn update_preview_with_role(interaction: &ComponentInteraction, role: TrialRole) -> CreateInteractionResponse {
-    let selected_users = get_selected_users(interaction);
-    let response = if let Some(users) = selected_users {
-        let mut trial = TrialData::try_from(*interaction.message.clone()).unwrap();
-        for user in users {
-            trial.signup(role, user);
-        }
-        CreateInteractionResponseMessage::new()
-            .embeds(vec![trial_embed(&trial, true)])
-    } else {
-        CreateInteractionResponseMessage::new()
-    };
-
-    CreateInteractionResponse::UpdateMessage(response)
 }
 
 fn request_day_channel_with_private_roster(interaction: &ComponentInteraction) -> CreateInteractionResponse {

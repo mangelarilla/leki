@@ -1,7 +1,7 @@
 use serenity::all::{CreateEmbed};
 use crate::events::embeds::format_with_role;
+use crate::events::models::EventRole;
 use crate::events::trials::models::TrialData;
-use crate::events::trials::TrialRole;
 use crate::prelude::embeds::*;
 
 pub fn trial_embed(data: &TrialData, is_preview: bool) -> CreateEmbed {
@@ -11,9 +11,9 @@ pub fn trial_embed(data: &TrialData, is_preview: bool) -> CreateEmbed {
         .field("", "\u{200b}", false)
         .field("", "\u{200b}", false);
 
-    let embed = format_with_role(embed, data, TrialRole::Tank, "<:tank:1154134006036713622> Tanks");
-    let embed = format_with_role(embed, data, TrialRole::DD, "<:dd:1154134731756150974> DD");
-    let embed = format_with_role(embed, data, TrialRole::Healer, "<:healer:1154134924153065544> Healers");
+    let embed = format_with_role(embed, data, EventRole::Tank, "<:tank:1154134006036713622> Tanks");
+    let embed = format_with_role(embed, data, EventRole::DD, "<:dd:1154134731756150974> DD");
+    let embed = format_with_role(embed, data, EventRole::Healer, "<:healer:1154134924153065544> Healers");
 
     event_embed_backup(data, embed)
         .field("", "\u{200b}", false)

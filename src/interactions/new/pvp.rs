@@ -1,13 +1,10 @@
 use serenity::all::{ComponentInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, ModalInteraction};
 use crate::error::Error;
 use crate::events::components::{select_event_channel};
-use crate::events::models::{EventBasicData};
+use crate::events::models::{EventBasicData, EventRole};
 use crate::events::pvp::components::{pvp_basic_info, pvp_participants_components};
 use crate::events::pvp::embeds::pvp_embed;
 use crate::events::pvp::models::PvPData;
-use crate::events::pvp::PvPRole;
-use crate::events::signup::EventSignupRoles;
-use crate::interactions::new::{get_selected_users, request_event_times};
 
 const PREFIX: &'static str = "pvp_";
 
@@ -23,14 +20,14 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
             "public" => Ok(request_day_channel()),
             "semi_public" => Ok(request_semi_public_roster_choices()),
             "private" => Ok(request_private_roster_choices()),
-            "semi_public_tanks" | "private_tanks" => Ok(update_preview_with_role(interaction, PvPRole::Tank)),
-            "semi_public_brawlers" | "private_brawlers" => Ok(update_preview_with_role(interaction, PvPRole::Brawler)),
-            "semi_public_healers" | "private_healers" => Ok(update_preview_with_role(interaction, PvPRole::Healer)),
-            "semi_public_bombers" | "private_bombers" => Ok(update_preview_with_role(interaction, PvPRole::Bomber)),
-            "semi_public_gankers" | "private_gankers" => Ok(update_preview_with_role(interaction, PvPRole::Ganker)),
+            "semi_public_tanks" | "private_tanks" => Ok(super::update_preview_with_role::<PvPData>(interaction, EventRole::Tank)),
+            "semi_public_brawlers" | "private_brawlers" => Ok(super::update_preview_with_role::<PvPData>(interaction, EventRole::Brawler)),
+            "semi_public_healers" | "private_healers" => Ok(super::update_preview_with_role::<PvPData>(interaction, EventRole::Healer)),
+            "semi_public_bombers" | "private_bombers" => Ok(super::update_preview_with_role::<PvPData>(interaction, EventRole::Bomber)),
+            "semi_public_gankers" | "private_gankers" => Ok(super::update_preview_with_role::<PvPData>(interaction, EventRole::Ganker)),
             "semi_public_confirm" => Ok(request_day_channel()),
             "private_confirm" => Ok(request_day_channel_with_private_roster(interaction)),
-            "event_day" => Ok(request_event_times(&prefixed("times"), ctx, interaction).await?),
+            "event_day" => Ok(super::request_event_times(&prefixed("times"), ctx, interaction).await?),
             "comp_confirm" => Ok(super::request_event_scope(interaction, prefixed("public"), prefixed("semi_public"), prefixed("private"))),
             "comp_change" => Ok(super::request_new_comp::<PvPData>(prefixed("comp_new"))),
             _ => Err(Error::UnknownInteraction(interaction.data.custom_id.to_string()))
@@ -55,22 +52,6 @@ pub(super) async fn handle_modal(interaction: &ModalInteraction, _ctx: &Context)
 
 fn prefixed(id: &str) -> String {
     format!("{}{}{}", super::PREFIX, PREFIX, id)
-}
-
-fn update_preview_with_role(interaction: &ComponentInteraction, role: PvPRole) -> CreateInteractionResponse {
-    let selected_users = get_selected_users(interaction);
-    let response = if let Some(users) = selected_users {
-        let mut pvp = PvPData::try_from(*interaction.message.clone()).unwrap();
-        for user in users {
-            pvp.signup(role, user);
-        }
-        CreateInteractionResponseMessage::new()
-            .embeds(vec![pvp_embed(&pvp, true)])
-    } else {
-        CreateInteractionResponseMessage::new()
-    };
-
-    CreateInteractionResponse::UpdateMessage(response)
 }
 
 fn request_day_channel_with_private_roster(interaction: &ComponentInteraction) -> CreateInteractionResponse {

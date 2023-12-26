@@ -1,12 +1,11 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
 use serenity::all::{ActionRow, CreateActionRow, CreateEmbed, Message, UserId};
-use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
+use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventRole, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
 use crate::events::parse::{empty_to_option, parse_basic_from_modal, parse_player, parse_players_in_role};
 use crate::events::signup::{EventBackupRoles, EventSignupRoles};
 use crate::events::trials::components::trial_new_comp_components;
 use crate::events::trials::embeds::{trial_comp_defaults, trial_embed};
-use crate::events::trials::TrialRole;
 use crate::prelude::get_input_value;
 
 #[derive(Debug)]
@@ -104,9 +103,9 @@ impl EventBackupRoles for TrialData {
         self.remove_signup(user);
         self.absents.push(Player::Basic(user))
     }
-    fn add_reserve(&mut self, user: UserId) {
-        self.remove_signup(user);
-        self.reserves.push(Player::Basic(user))
+    fn add_reserve(&mut self, player: Player) {
+        self.remove_signup(player.clone().into());
+        self.reserves.push(player)
     }
 }
 
@@ -128,38 +127,32 @@ impl EventSignups for TrialData {
     }
 }
 
-impl EventSignupRoles<TrialRole> for TrialData {
-    fn is_role_full(&self, role: TrialRole) -> bool {
+impl EventSignupRoles for TrialData {
+    fn is_role_full(&self, role: EventRole) -> bool {
         match role {
-            TrialRole::Tank => self.tanks.is_role_full(),
-            TrialRole::DD => self.dds.is_role_full(),
-            TrialRole::Healer => self.healers.is_role_full()
+            EventRole::Tank => self.tanks.is_role_full(),
+            EventRole::DD => self.dds.is_role_full(),
+            EventRole::Healer => self.healers.is_role_full(),
+            _ => true
         }
     }
 
-    fn signup(&mut self, role: TrialRole, user: UserId) {
-        self.remove_signup(user);
+    fn signup(&mut self, role: EventRole, player: Player) {
+        self.remove_signup(player.clone().into());
         match role {
-            TrialRole::Tank => self.tanks.push(Player::Basic(user)),
-            TrialRole::DD => self.dds.push(Player::Basic(user)),
-            TrialRole::Healer => self.healers.push(Player::Basic(user)),
+            EventRole::Tank => self.tanks.push(player),
+            EventRole::DD => self.dds.push(player),
+            EventRole::Healer => self.healers.push(player),
+            _ => ()
         }
     }
 
-    fn signup_class(&mut self, role: TrialRole, user: UserId, class: String) {
-        self.remove_signup(user);
+    fn role(&self, role: EventRole) -> &PlayersInRole {
         match role {
-            TrialRole::Tank => self.tanks.push(Player::Class(user, class)),
-            TrialRole::DD => self.dds.push(Player::Class(user, class)),
-            TrialRole::Healer => self.healers.push(Player::Class(user, class)),
-        }
-    }
-
-    fn role(&self, role: TrialRole) -> &PlayersInRole {
-        match role {
-            TrialRole::Tank => &self.tanks,
-            TrialRole::DD => &self.dds,
-            TrialRole::Healer => &self.healers
+            EventRole::Tank => &self.tanks,
+            EventRole::DD => &self.dds,
+            EventRole::Healer => &self.healers,
+            _ => unreachable!("No role for Trial")
         }
     }
 }
@@ -172,7 +165,7 @@ impl TryFrom<Message> for TrialData {
         let fields = &trial_embed.fields;
         let datetime = fields.get(0).unwrap().value.clone()
             .replace("<t:", "")
-            .replace(":f>", "")
+            .replace(":F>", "")
             .parse::<i64>().ok();
         let tanks = fields.get(7).unwrap();
         let dds = fields.get(8).unwrap();

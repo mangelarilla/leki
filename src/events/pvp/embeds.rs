@@ -1,7 +1,7 @@
 use serenity::all::CreateEmbed;
 use crate::events::embeds::format_with_role;
+use crate::events::models::EventRole;
 use crate::events::pvp::models::PvPData;
-use crate::events::pvp::PvPRole;
 use crate::prelude::embeds::*;
 
 pub fn pvp_embed(data: &PvPData, is_preview: bool) -> CreateEmbed {
@@ -9,11 +9,11 @@ pub fn pvp_embed(data: &PvPData, is_preview: bool) -> CreateEmbed {
         .field("", "\u{200b}", false)
         .field("", "\u{200b}", false);
 
-    let embed = format_with_role(embed, data, PvPRole::Tank, "<:tank:1154134006036713622> Tanks");
-    let embed = format_with_role(embed, data, PvPRole::Brawler, "<:dd:1154134731756150974> Brawlers");
-    let embed = format_with_role(embed, data, PvPRole::Healer, "<:healer:1154134924153065544> Healers");
-    let embed = format_with_role(embed, data, PvPRole::Bomber, ":bomb: Bombers");
-    let embed = format_with_role(embed, data, PvPRole::Ganker, ":knife: Gankers");
+    let embed = format_with_role(embed, data, EventRole::Tank, "<:tank:1154134006036713622> Tanks");
+    let embed = format_with_role(embed, data, EventRole::Brawler, "<:dd:1154134731756150974> Brawlers");
+    let embed = format_with_role(embed, data, EventRole::Healer, "<:healer:1154134924153065544> Healers");
+    let embed = format_with_role(embed, data, EventRole::Bomber, ":bomb: Bombers");
+    let embed = format_with_role(embed, data, EventRole::Ganker, ":knife: Gankers");
 
     event_embed_backup(data, embed)
         .field("", "\u{200b}", false)

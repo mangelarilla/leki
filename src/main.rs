@@ -7,9 +7,8 @@ pub mod events;
 
 use std::sync::Arc;
 use anyhow::anyhow;
-use serenity::all::{ButtonStyle, Command, CommandType, CreateActionRow, CreateButton, CreateCommand, CreateMessage, ScheduledEvent};
+use serenity::all::{Command, CommandType, CreateCommand};
 use serenity::async_trait;
-use serenity::builder::CreateEmbed;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
 use serenity::model::prelude::{Interaction};
@@ -73,32 +72,6 @@ impl EventHandler for Bot {
                 interactions::handle_modal(&ctx, modal).await;
             }
             _ => {}
-        }
-    }
-
-    async fn guild_scheduled_event_delete(&self, ctx: Context, event: ScheduledEvent) {
-        if event.creator_id.unwrap() == 1148032756899643412 {
-            let (guild, channel_id, message) = parse_event_link(&event.description.unwrap());
-            let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
-            let message = channel.get(&ChannelId::new(channel_id)).unwrap()
-                .message(&ctx.http, MessageId::new(message)).await;
-            if let Ok(message) = message {
-                let guild_event = EventKind::try_from(message).unwrap();
-                let leader = guild_event.leader();
-                let dm = leader.create_dm_channel(&ctx.http).await.unwrap();
-                dm.send_message(&ctx.http, CreateMessage::new()
-                    .embed(CreateEmbed::new()
-                        .title(format!("Borrar evento: '{}'?", event.name))
-                        .description("Esto borrara el evento y los mensajes posteriores del canal, menos las chinchetas")
-                        .field("Id del canal", channel_id.to_string(), true)
-                    )
-                    .components(vec![CreateActionRow::Buttons(vec![
-                        CreateButton::new("delete_event")
-                            .label("Borrar")
-                            .style(ButtonStyle::Danger)
-                    ])])
-                ).await.unwrap();
-            }
         }
     }
 }

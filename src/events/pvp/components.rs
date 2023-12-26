@@ -34,7 +34,7 @@ pub fn pvp_signup_components() -> Vec<CreateActionRow> {
             .emoji(ReactionType::Unicode("🔪".to_string()))
     ]);
 
-    vec![class_row, event_components_backup()]
+    vec![class_row, event_components_backup("signup_pvp_reserve")]
 }
 
 pub(crate) fn pvp_new_comp_components() -> Vec<CreateActionRow> {
