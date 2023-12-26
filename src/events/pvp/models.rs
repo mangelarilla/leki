@@ -52,8 +52,8 @@ impl FromComp for PvPData {
         let tanks = get_input_value(components, 0);
         let brawlers = get_input_value(components, 1);
         let healers = get_input_value(components, 2);
-        let bombers = get_input_value(components, 2);
-        let gankers = get_input_value(components, 2);
+        let bombers = get_input_value(components, 3);
+        let gankers = get_input_value(components, 4);
 
         pvp.tanks = PlayersInRole::new(vec![], tanks.map(|m| m.parse::<usize>().ok()).flatten());
         pvp.brawlers = PlayersInRole::new(vec![], brawlers.map(|m| m.parse::<usize>().ok()).flatten());
