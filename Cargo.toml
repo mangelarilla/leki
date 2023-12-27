@@ -13,8 +13,10 @@ serenity = { version = "0.12.0", default-features = false, features = ["client",
 tokio = "1.35.1"
 tracing = "0.1.40"
 chrono = "0.4.31"
-duration-string="0.3"
+duration-string = { version = "0.3", features = ["serde"] }
 log = "0.4.20"
 regex = "1.10"
 lazy_static = "1"
 unidecode = "0.3.0"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8.8"

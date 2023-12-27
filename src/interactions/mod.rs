@@ -3,18 +3,34 @@ mod new;
 mod signup;
 
 use chrono::{DateTime, Utc};
-use serenity::all::{ChannelId, CommandInteraction, ComponentInteraction, CreateAttachment, CreateEmbedAuthor, GuildId, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
+use serenity::all::{ButtonStyle, ChannelId, CommandInteraction, ComponentInteraction, CreateActionRow, CreateAttachment, CreateButton, CreateEmbedAuthor, CreateInputText, CreateModal, EditMessage, GuildId, InputTextStyle, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
 use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateScheduledEvent, GetMessages};
 use serenity::client::Context;
 use serenity::model::Timestamp;
 use tracing::{error};
-use crate::events::models::{EventBasicData, EventKind};
+use crate::events::models::{EventBasicData, EventEmbed, EventKind};
 use crate::prelude::*;
 
 pub(crate) async fn handle_commands(ctx: &Context, interaction: CommandInteraction) {
     let result = match interaction.data.name.as_str() {
         "events" => new::new_event_response(&interaction, ctx).await,
-        // "Edit event" => todo!(),
+        "Edit event" => {
+            let message = interaction.data.resolved.messages.values().next().unwrap();
+            let event = EventKind::try_from(message.clone()).unwrap();
+            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(
+                CreateInteractionResponseMessage::new()
+                    .ephemeral(true)
+                    .content(format!("__**Evento en formato texto (copialo)**__\n```{}```", toml::to_string(&event).unwrap()))
+                    .components(vec![
+                        CreateActionRow::Buttons(vec![
+                            CreateButton::new(format!("edit_event__{}", message.id))
+                                .label("Modificar (pega los cambios dentro)")
+                                .style(ButtonStyle::Success)
+                        ])
+                    ])
+            )).await.unwrap();
+            Ok(())
+        },
         "Delete event" => {
             let message = interaction.data.resolved.messages.values().next().unwrap();
             if message.author.id != 1148032756899643412 {
@@ -89,22 +105,25 @@ pub(crate) async fn handle_commands(ctx: &Context, interaction: CommandInteracti
 
 pub(crate) async fn handle_component(ctx: &Context, interaction: ComponentInteraction) {
     let result = match interaction.data.custom_id.as_str() {
-        "delete_event" => {
-            let embed = interaction.message.embeds.first().unwrap();
-            let channel_id = embed.fields.get(0).unwrap().value.clone().parse::<u64>().unwrap();
-            let channel = ChannelId::new(channel_id);
-            let messages = get_event_channel_messages(channel, ctx).await.unwrap();
-            channel.delete_messages(&ctx.http, messages).await.unwrap();
-            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
-                .content("Borrado!"))).await.unwrap();
-            Ok(())
-        },
         _ => {
             if interaction.data.custom_id.starts_with("new_") {
                 new::handle_component(&interaction, ctx).await.unwrap();
                 Ok(())
             } else if interaction.data.custom_id.starts_with("signup_") {
                 signup::handle_component(&interaction, ctx).await.unwrap();
+                Ok(())
+            } else if interaction.data.custom_id.starts_with("edit_event") {
+                let (_, id) = interaction.data.custom_id.split_once("__").unwrap();
+                interaction.create_response(&ctx.http, CreateInteractionResponse::Modal(
+                    CreateModal::new(format!("edit_event_modal__{}", id), "Editar evento")
+                        .components(vec![
+                            CreateActionRow::InputText(
+                                CreateInputText::new(InputTextStyle::Paragraph, "Importar cambios", "import_event")
+                                    .placeholder("Pega aqui el formato texto del evento modificado")
+                            )
+                        ])
+
+                )).await.unwrap();
                 Ok(())
             } else {
                 error!("Component interaction '{}' not handled", &interaction.data.custom_id);
@@ -127,6 +146,27 @@ pub(crate) async fn handle_modal(ctx: &Context, interaction: ModalInteraction) {
         if let Err(why) = result {
             error!("Error at '{}': {why:?}", &interaction.data.custom_id);
         }
+    }
+
+    if interaction.data.custom_id.starts_with("edit_event_modal") {
+        let edit = get_input_value(&interaction.data.components, 0).unwrap();
+
+        match toml::from_str::<EventKind>(&edit) {
+            Ok(mut edit) => {
+                let (_, id) = interaction.data.custom_id.split_once("__").unwrap();
+                let mut original_msg = interaction.channel_id.message(&ctx.http, id.parse::<u64>().unwrap()).await.unwrap();
+                let original = EventKind::try_from(original_msg.clone()).unwrap();
+                edit.set_datetime(original.datetime().unwrap());
+                original_msg.edit(&ctx.http, EditMessage::new().embed(edit.get_embed())).await.unwrap();
+                interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+                    CreateInteractionResponseMessage::new().content("Actualizado!").components(vec![])
+                )).await.unwrap();
+            },
+            Err(error) => interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new()
+                    .content(format!("Ta feo eso que has escrito\n```Error:\n{}```", error)).components(vec![])
+            )).await.unwrap()
+       }
     }
 }
 

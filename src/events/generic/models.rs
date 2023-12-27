@@ -1,21 +1,22 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ActionRow, CreateEmbed, Message, UserId};
 use crate::events::generic::embeds::event_generic_embed;
 use crate::events::models::{EventBasicData, EventEmbed, EventSignups, FromBasicModal, Player, PlayersInRole, remove_from_role};
 use crate::events::parse::{parse_basic_from_modal, parse_player, parse_players_in_role};
 use crate::events::signup::EventBackupRoles;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct EventGenericData {
-    title: String,
-    description: String,
-    pub(crate) datetime: Option<DateTime<Utc>>,
+    #[serde(rename="titulo")] title: String,
+    #[serde(rename="descripcion")] description: String,
+    #[serde(skip)] pub(crate) datetime: Option<DateTime<Utc>>,
     duration: DurationString,
-    leader: UserId,
-    signed: PlayersInRole,
-    reserves: PlayersInRole,
-    absents: PlayersInRole,
+    #[serde(rename="lider")] leader: UserId,
+    #[serde(rename="apuntados")] signed: PlayersInRole,
+    #[serde(rename="reservas")] reserves: PlayersInRole,
+    #[serde(rename="ausencias")] absents: PlayersInRole,
 }
 
 impl EventGenericData {

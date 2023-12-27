@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ActionRow, CreateActionRow, CreateEmbed, Message, UserId};
 use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventRole, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
 use crate::events::parse::{parse_basic_from_modal, parse_player, parse_players_in_role};
@@ -8,20 +9,20 @@ use crate::events::pvp::embeds::{pvp_comp_defaults, pvp_embed};
 use crate::events::signup::{EventBackupRoles, EventSignupRoles};
 use crate::prelude::get_input_value;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PvPData {
-    title: String,
-    description: String,
-    pub(crate) datetime: Option<DateTime<Utc>>,
-    duration: DurationString,
-    leader: UserId,
+    #[serde(rename="titulo")] title: String,
+    #[serde(rename="descripcion")] description: String,
+    #[serde(skip)] pub(crate) datetime: Option<DateTime<Utc>>,
+    #[serde(rename="duracion")] duration: DurationString,
+    #[serde(rename="lider")] leader: UserId,
     tanks: PlayersInRole,
     brawlers: PlayersInRole,
     bombers: PlayersInRole,
     gankers: PlayersInRole,
     healers: PlayersInRole,
-    reserves: PlayersInRole,
-    absents: PlayersInRole,
+    #[serde(rename="reservas")] reserves: PlayersInRole,
+    #[serde(rename="ausencias")] absents: PlayersInRole,
 }
 
 impl FromBasicModal for PvPData {

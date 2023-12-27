@@ -2,6 +2,7 @@ use std::fmt::{Display};
 use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ActionRow, CreateActionRow, Message, UserId};
 use serenity::builder::CreateEmbed;
 use crate::error::Error;
@@ -43,13 +44,14 @@ pub trait EventComp {
     fn get_comp_new_components() -> Vec<CreateActionRow>;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlayersInRole {
+    #[serde(rename="apuntados")]
     players: Vec<Player>,
     max: Option<usize>
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum EventRole {
     Tank, Healer, Brawler, Bomber, Ganker, DD
 }
@@ -120,10 +122,11 @@ impl Default for PlayersInRole {
     }
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "formato", content = "jugador")]
 pub enum Player {
-    Basic(UserId),
-    Class(UserId, String, Vec<EventRole>)
+    #[serde(rename="basico")] Basic(UserId),
+    #[serde(rename="clase_rol")] Class(UserId, String, Vec<EventRole>)
 }
 
 impl Into<UserId> for Player {
@@ -135,7 +138,8 @@ impl Into<UserId> for Player {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "tipo")]
 pub enum EventKind {
     Trial(TrialData), Generic(EventGenericData), PvP(PvPData)
 }
