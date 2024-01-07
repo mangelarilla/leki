@@ -107,7 +107,7 @@ pub(crate) fn select_flex_roles(id: impl Into<String>, roles: &[EventRole]) -> C
 
     CreateActionRow::SelectMenu(CreateSelectMenu::new(id, role_selector)
         .placeholder("(Opcional) Roles de reserva")
-        .max_values(5))
+        .max_values(roles.len() as u8))
 }
 
 pub(crate) fn time_options() -> CreateSelectMenuKind {
