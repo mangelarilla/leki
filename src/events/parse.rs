@@ -53,7 +53,7 @@ pub(super) fn parse_basic_from_modal(components: &Vec<ActionRow>) -> (String, St
 pub fn parse_player(text: &str) -> Player {
     tracing::info!("parse_player: {text}");
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>(?:\s\(Flex:\s)*(?P<flex_roles>.+)*(?:\))*").unwrap();
+        static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>(?:\s\(Flex:\s)*(?P<flex_roles>.+[^\)])*").unwrap();
     }
     RE.captures(text).and_then(|cap| Option::from({
         let class = cap.name("class")

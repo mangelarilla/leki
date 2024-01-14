@@ -2,11 +2,12 @@ use serenity::all::{ButtonStyle, CreateActionRow, CreateButton, EmojiId, Reactio
 use crate::events::components::event_components_backup;
 use crate::prelude::components::*;
 
-pub fn trial_participants_components(tanks_id: &str, dds_id: &str, healers_id: &str, id: &str) -> Vec<CreateActionRow> {
+pub fn trial_participants_components(tanks_id: &str, dds_id: &str, healers_id: &str, reserves_id: &str, id: &str) -> Vec<CreateActionRow> {
     vec![
         get_roster_select(tanks_id, "Tanques titulares", 2),
         get_roster_select(dds_id, "DD titulares", 8),
         get_roster_select(healers_id, "Healers titulares", 2),
+        get_roster_select(reserves_id, "Reservas", 8),
         CreateActionRow::Buttons(vec![
             CreateButton::new(id)
                 .label("Continuar")

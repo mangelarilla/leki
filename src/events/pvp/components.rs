@@ -47,13 +47,13 @@ pub(crate) fn pvp_new_comp_components() -> Vec<CreateActionRow> {
     ]
 }
 
-pub fn pvp_participants_components(tanks_id: &str, brawlers_id: &str, healers_id: &str, bombers_id: &str, gankers_id: &str, id: &str) -> Vec<CreateActionRow> {
+pub fn pvp_participants_components(tanks_id: &str, brawlers_id: &str, healers_id: &str, bombers_id: &str, _gankers_id: &str, id: &str) -> Vec<CreateActionRow> {
     vec![
         get_roster_select(tanks_id, "Tanques titulares", 8),
         get_roster_select(brawlers_id, "Brawlers titulares", 8),
         get_roster_select(healers_id, "Healers titulares", 8),
         get_roster_select(bombers_id, "Bombers titulares", 8),
-        get_roster_select(gankers_id, "Gankers titulares", 8),
+        // get_roster_select(gankers_id, "Gankers titulares", 8),
         CreateActionRow::Buttons(vec![
             CreateButton::new(id)
                 .label("Continuar")
