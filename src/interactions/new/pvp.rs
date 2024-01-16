@@ -13,7 +13,7 @@ pub(super) async fn handle_component(interaction: &ComponentInteraction, ctx: &C
         .replace(super::PREFIX, "").replace(PREFIX, "");
 
     let response = if event_id.starts_with("times") {
-        Ok(super::create_event(interaction, ctx, false).await?)
+        Ok(super::create_event(interaction, ctx, true).await?)
     } else {
         match event_id.as_str() {
             "event" => Ok(request_basic_pvp_data()),

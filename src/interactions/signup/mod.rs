@@ -4,9 +4,10 @@ mod generic;
 
 use std::fmt::Display;
 use std::str::FromStr;
-use serenity::all::{ComponentInteraction, ComponentInteractionDataKind, Context, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Message};
+use serenity::all::{ComponentInteraction, ComponentInteractionDataKind, Context, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, EditMessage, Mention, Message};
+use serenity::builder::CreateMessage;
 use crate::events::components::{select_flex_roles, select_player_class};
-use crate::events::models::{EventEmbed, EventKind, EventRole, Player};
+use crate::events::models::{EventBasicData, EventEmbed, EventKind, EventRole, Player};
 use crate::events::signup::{EventBackupRoles, EventSignupRoles};
 use crate::prelude::*;
 
@@ -42,7 +43,7 @@ fn signup_class_flex(id: impl Into<String>+Display, flex_roles: &[EventRole]) ->
             .components(vec![flex_selector, class_selector])
     ))
 }
-async fn signup_confirm<T: TryFrom<Message>+EventSignupRoles+EventBackupRoles+EventEmbed>(interaction: &ComponentInteraction, ctx: &Context, role: Option<EventRole>) -> Result<CreateInteractionResponse> {
+async fn signup_confirm<T: TryFrom<Message>+EventSignupRoles+EventBackupRoles+EventEmbed+EventBasicData>(interaction: &ComponentInteraction, ctx: &Context, role: Option<EventRole>) -> Result<CreateInteractionResponse> {
     let selected_class = get_selected_option(interaction).unwrap();
     let mut flex_roles = interaction.message.embeds.first().map(|e| e
         .description.clone().unwrap()
@@ -54,6 +55,7 @@ async fn signup_confirm<T: TryFrom<Message>+EventSignupRoles+EventBackupRoles+Ev
     let mut original_msg = reference.channel_id.message(&ctx.http, reference.message_id.unwrap()).await?;
 
     if let Ok(mut event) = T::try_from(original_msg.clone()) {
+        let dm = event.leader().create_dm_channel(&ctx.http).await?;
         if let Some(role) = role {
             if event.is_role_full(role) {
                 if !flex_roles.contains(&role) {
@@ -61,6 +63,12 @@ async fn signup_confirm<T: TryFrom<Message>+EventSignupRoles+EventBackupRoles+Ev
                 }
                 event.add_reserve(Player::Class(interaction.user.id, selected_class, flex_roles))
             } else {
+                let user = Mention::User(interaction.user.id).to_string();
+                let channel = Mention::Channel(interaction.channel_id).to_string();
+                let flex = flex_roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
+                dm.send_message(&ctx.http, CreateMessage::new()
+                    .content(format!("{user} se ha apuntado al evento en {channel} como {}, y flexible a: {}", role, flex.join(",")))
+                ).await?;
                 event.signup(role, Player::Class(interaction.user.id, selected_class, flex_roles));
             }
         } else {
