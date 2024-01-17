@@ -4,17 +4,18 @@ mod prelude;
 mod utils;
 mod tasks;
 pub mod events;
+mod commands;
 
 use std::sync::Arc;
 use anyhow::anyhow;
-use serenity::all::{Command, CommandType, CreateCommand};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{ChannelId, GuildId, MessageId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use tracing::{error, info};
+use tracing::{info};
 use shuttle_secrets::SecretStore;
+use crate::commands::register_commands;
 use crate::events::models::{EventBasicData, EventKind};
 use crate::utils::{parse_event_link};
 
@@ -25,21 +26,8 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
 
-        register_command(&ctx.http, CreateCommand::new("events")
-            .description("Event management")
-            .description_localized("es-ES", "Gestión de eventos")
-        ).await;
-        register_command(&ctx.http, CreateCommand::new("Edit event")
-            .name_localized("es-ES","Editar evento")
-            .kind(CommandType::Message)
-        ).await;
-        register_command(&ctx.http, CreateCommand::new("Delete event")
-            .name_localized("es-ES","Eliminar evento")
-            .kind(CommandType::Message)
-        ).await;
-        register_command(&ctx.http, CreateCommand::new("help")
-            .description("Como se usa Leki")
-        ).await;
+        register_commands(&ctx.http, GuildId::new(1134046249293717514)).await;
+        register_commands(&ctx.http, GuildId::new(592035476538392612)).await;
 
         let ctx = Arc::new(ctx);
         for guild in &ready.guilds {
@@ -73,15 +61,6 @@ impl EventHandler for Bot {
             }
             _ => {}
         }
-    }
-}
-
-async fn register_command(http: impl CacheHttp, builder: CreateCommand) {
-    let command = Command::create_global_command(http, builder).await;
-
-    match command {
-        Ok(command) => info!("Command '{}' registered", &command.name),
-        Err(error) => error!("Error registering command: {}",  error)
     }
 }
 
