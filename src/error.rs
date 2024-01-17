@@ -8,6 +8,8 @@ pub enum Error {
     Timestamp(#[from] serenity::model::timestamp::InvalidTimestamp),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
+    #[error(transparent)]
+    IO(#[from] std::io::Error),
     #[error("Role `{0}` is full")]
     RoleFull(String),
     #[error("Interaction not registered `{0}`")]

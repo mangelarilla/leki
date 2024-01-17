@@ -2,7 +2,9 @@
 mod new;
 mod signup;
 
+use std::path::{PathBuf};
 use chrono::{DateTime, Utc};
+use rand::prelude::IteratorRandom;
 use serenity::all::{ButtonStyle, ChannelId, CommandInteraction, ComponentInteraction, CreateActionRow, CreateAttachment, CreateButton, CreateEmbedAuthor, CreateInputText, CreateModal, EditMessage, GuildId, InputTextStyle, Message, MessageId, MessageType, ModalInteraction, ScheduledEventType};
 use serenity::builder::{CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateScheduledEvent, GetMessages};
 use serenity::client::Context;
@@ -10,7 +12,6 @@ use serenity::model::Timestamp;
 use tracing::{error};
 use crate::events::models::{EventBasicData, EventEmbed, EventKind};
 use crate::prelude::*;
-
 pub(crate) async fn handle_commands(ctx: &Context, interaction: CommandInteraction) {
     let result = match interaction.data.name.as_str() {
         "events" => new::new_event_response(&interaction, ctx).await,
@@ -179,16 +180,36 @@ async fn create_discord_event(guild: GuildId, ctx: &Context, data: &impl EventBa
             if is_pvp {1144350647848812564} else {1144350408769286274}
         })
         .end_time(Timestamp::from_unix_timestamp(end_datetime.timestamp()).unwrap())
-        .image(&CreateAttachment::url(&ctx.http, &guess_image(data.title(), is_pvp)).await.unwrap())
+        .image(&get_image(is_pvp, ctx, data.title()).await?)
     ).await?;
     Ok(())
 }
 
-fn guess_image(title: String, is_pvp: bool) -> String {
+async fn get_image(is_pvp: bool, ctx: &Context, title: String) -> Result<CreateAttachment> {
+    let attachment = if is_pvp {
+        CreateAttachment::path(random_pvp_image()?).await?
+    } else {
+        CreateAttachment::url(&ctx.http, &guess_image(title)).await?
+    };
+
+    Ok(attachment)
+}
+
+fn random_pvp_image() -> Result<PathBuf> {
+    let mut path = PathBuf::from("assets");
+    path.push("pvp");
+
+    let image = path.read_dir()?
+        .filter_map(|f| f.ok())
+        .choose(&mut rand::thread_rng())
+        .unwrap();
+
+    Ok(image.path())
+}
+
+fn guess_image(title: String) -> String {
     let title = unidecode::unidecode(&title.to_lowercase());
-    if is_pvp {
-        "https://dottzgaming.com/wp-content/uploads/2019/03/pvp-header-eso-1.jpg".to_string()
-    } else if title.contains("aa") || title.contains("aetherian") || title.contains("aeterico") {
+    if title.contains("aa") || title.contains("aetherian") || title.contains("aeterico") {
         "https://images.uesp.net/thumb/f/fc/ON-load-Aetherian_Archive.jpg/1200px-ON-load-Aetherian_Archive.jpg".to_string()
     } else if title.contains("as") || title.contains("asylum") || title.contains("amparo") {
         "https://eso-hub.com/storage/headers/asylum-sanctorium-trial-e-s-o-header-yyye8-n.jpg".to_string()
