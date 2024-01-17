@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::all::ActionRowComponent::InputText;
 use serenity::all::{ActionRow};
+use tracing::{instrument};
 
 pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String> {
     let input_text = components.get(idx)
@@ -48,11 +49,12 @@ pub fn to_weekday(day: &str) -> Option<Weekday> {
     }
 }
 
+#[instrument]
 pub fn parse_event_link(text: &str) -> (u64, u64, u64) {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"^https:\/\/discord\.com\/channels\/(?P<guild>\d+)\/(?P<channel>\d+)\/(?P<msg>\d+)$").unwrap();
     }
-    tracing::info!("Link: {}", text);
+
     RE.captures(text.lines().next().unwrap()).and_then(|cap| Option::from({
         (cap.name("guild").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
          cap.name("channel").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),

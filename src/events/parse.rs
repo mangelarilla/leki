@@ -3,6 +3,7 @@ use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::all::{ActionRow, EmbedField, Message, UserId};
+use tracing::instrument;
 use crate::events::generic::models::EventGenericData;
 use crate::events::models::{EventKind, EventRole, Player, PlayersInRole};
 use crate::events::pvp::models::PvPData;
@@ -22,8 +23,8 @@ impl From<Message> for EventKind {
     }
 }
 
+#[instrument]
 pub(crate) fn parse_players_in_role(field: &EmbedField) -> PlayersInRole {
-    tracing::info!("parse_players_in_role: {field:?}");
     let players = field.value.clone().lines()
         .filter(|s| !s.is_empty())
         .map(|s| parse_player(s)).collect();
@@ -31,8 +32,8 @@ pub(crate) fn parse_players_in_role(field: &EmbedField) -> PlayersInRole {
     PlayersInRole::new(players, max)
 }
 
+#[instrument]
 pub(crate) fn get_max(text: &str) -> Option<String> {
-    tracing::info!("get_max: {text}");
     lazy_static! {
         static ref RE: Regex = Regex::new(r".+\/(?P<max>\d+)").unwrap();
     }
@@ -50,8 +51,8 @@ pub(super) fn parse_basic_from_modal(components: &Vec<ActionRow>) -> (String, St
     (title.unwrap(), description.unwrap(), duration)
 }
 
+#[instrument]
 pub fn parse_player(text: &str) -> Player {
-    tracing::info!("parse_player: {text}");
     lazy_static! {
         static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>(?:\s\(Flex:\s)*(?P<flex_roles>.+[^\)])*").unwrap();
     }
