@@ -2,12 +2,15 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
 use lazy_static::lazy_static;
-use serenity::all::{ChannelId, CreateMessage, GuildId, Mention, MessageId, Ready};
+use serenity::all::{ChannelId, CreateMessage, GuildId, Mention, Message, MessageId, Ready};
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
 use tokio::task::JoinHandle;
 use tracing::{event, Instrument, instrument, Level, trace_span};
-use crate::events::models::{EventBasicData, EventKind, EventSignups};
+use crate::events::generic::models::EventGenericData;
+use crate::events::{EventData};
+use crate::events::pvp::models::PvPData;
+use crate::events::trials::models::TrialData;
 use crate::prelude::*;
 
 lazy_static! {
@@ -22,20 +25,34 @@ pub(crate) async fn reset_all_reminders(ctx: Arc<Context>, ready: &Ready) {
             for event in events {
                 if event.creator_id.unwrap() == ready.user.id {
                     let (guild, channel_id, message) = parse_event_link(&event.description.unwrap());
-                    let channel = GuildId::new(guild).channels(&ctx.http).await.unwrap();
-                    let message = channel.get(&ChannelId::new(channel_id)).unwrap()
-                        .message(&ctx.http, MessageId::new(message)).await.unwrap();
-                    let event = EventKind::try_from(message.clone()).unwrap();
+                    let guild_id = GuildId::new(guild);
+                    let channel_id = ChannelId::new(channel_id);
 
-                    set_reminder(event.datetime().unwrap(), ctx.clone(), ChannelId::new(channel_id), message.id, GuildId::new(guild));
+                    let channel = guild_id.channels(&ctx.http).await.unwrap();
+                    let message = channel.get(&channel_id).unwrap()
+                        .message(&ctx.http, MessageId::new(message)).await.unwrap();
+
+                    check_event_kinds(&message, ctx.clone(), channel_id, guild_id);
                 }
             }
         }
     }.instrument(span).await
 }
 
+fn check_event_kinds(msg: &Message, ctx: Arc<Context>, channel_id: ChannelId, guild_id: GuildId) {
+    if let Ok(trial) = TrialData::try_from(msg.clone()) {
+        set_reminder::<TrialData>(trial.datetime().unwrap(), ctx, channel_id, msg.id, guild_id);
+    }
+    else if let Ok(pvp) = PvPData::try_from(msg.clone()) {
+        set_reminder::<PvPData>(pvp.datetime().unwrap(), ctx, channel_id, msg.id, guild_id);
+    }
+    else if let Ok(generic) = EventGenericData::try_from(msg.clone()) {
+        set_reminder::<EventGenericData>(generic.datetime().unwrap(), ctx, channel_id, msg.id, guild_id);
+    }
+}
+
 #[instrument]
-pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, guild: GuildId) {
+pub fn set_reminder<T: EventData + Send>(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, guild: GuildId) {
     unset_reminder(&channel);
     let handle = tokio::spawn(async move {
         let duration = date - chrono::offset::Utc::now() - Duration::minutes(30);
@@ -43,22 +60,23 @@ pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, 
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;
             let message = channel.message(&ctx.http, message).await.unwrap();
-            let event = EventKind::try_from(message).unwrap();
-            let mentions: Vec<String> = event.signups().into_iter().map(|s| Mention::User(s.into()).to_string()).collect();
-            let signed_members = event.signups().into_iter().map(|user| guild.member(&ctx.http, user));
-            let signed_members = serenity::futures::future::join_all(signed_members).await;
-            channel.send_message(&ctx.http, CreateMessage::new()
-                .content(format!("__**Invitaciones para el RL**__\n```/script {}```", signed_members.into_iter()
-                    .map(|u| {
-                        let member = u.unwrap();
-                        format!("GroupInviteByName(\"@{}\")", member.nick.unwrap_or(member.user.name))
-                    }).collect::<Vec<String>>().join(" ")
-                ))
-                .embed(CreateEmbed::new()
-                    .title("⏰ 30 minutos para iniciar el evento!")
-                    .field("Apuntados", mentions.join("\n"), true)
-                )
-            ).await.unwrap();
+            if let Some(event) = T::try_from(message).ok() {
+                let mentions: Vec<String> = event.signups().into_iter().map(|s| Mention::User(s.into()).to_string()).collect();
+                let signed_members = event.signups().into_iter().map(|user| guild.member(&ctx.http, user));
+                let signed_members = serenity::futures::future::join_all(signed_members).await;
+                channel.send_message(&ctx.http, CreateMessage::new()
+                    .content(format!("__**Invitaciones para el RL**__\n```/script {}```", signed_members.into_iter()
+                        .map(|u| {
+                            let member = u.unwrap();
+                            format!("GroupInviteByName(\"@{}\")", member.nick.unwrap_or(member.user.name))
+                        }).collect::<Vec<String>>().join(" ")
+                    ))
+                    .embed(CreateEmbed::new()
+                        .title("⏰ 30 minutos para iniciar el evento!")
+                        .field("Apuntados", mentions.join("\n"), true)
+                    )
+                ).await.unwrap();
+            }
         }
     });
 

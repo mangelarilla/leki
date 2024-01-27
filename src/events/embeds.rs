@@ -1,19 +1,14 @@
 use serenity::builder::CreateEmbed;
-use crate::events::models::EventRole;
-use crate::events::signup::EventSignupRoles;
+use crate::events::{EventData, EventSignedRole};
 use crate::prelude::embeds::*;
 
-pub fn new_event_embed() -> CreateEmbed {
-    basic("Nuevo evento", "Elige tipo de evento")
-}
-
-pub(super) fn format_with_role(embed: CreateEmbed, data: &impl EventSignupRoles, role: EventRole, label: &str) -> CreateEmbed {
+pub(super) fn format_with_role(embed: CreateEmbed, data: &impl EventData, role: EventSignedRole) -> CreateEmbed {
     let signups = data.role(role);
 
     let formatted_label = if let Some(max) = signups.max() {
-        format!("{} ({}/{})", label, signups.len(), max)
+        format!("{} {role} ({}/{max})", role.emoji().to_string(), signups.len())
     } else {
-        format!("{} ({})", label, signups.len())
+        format!("{} {role} ({})", role.emoji().to_string(), signups.len())
     };
 
     embed.field(formatted_label, format_players_embed(&signups.clone().into()), false)

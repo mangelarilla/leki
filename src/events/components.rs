@@ -1,29 +1,5 @@
 use serenity::all::{ButtonStyle, ChannelId, ChannelType, CreateActionRow, CreateButton, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EmojiId, ReactionType};
-use crate::events::models::EventRole;
-
-pub(crate) fn new_event_components(trial_id: impl Into<String>, pvp_id: impl Into<String>, generic_id: impl Into<String>) -> Vec<CreateActionRow> {
-    vec![CreateActionRow::Buttons(vec![
-        CreateButton::new(trial_id).label("Trial").style(ButtonStyle::Secondary),
-        CreateButton::new(pvp_id).label("PvP").style(ButtonStyle::Secondary),
-        CreateButton::new(generic_id).label("Generico").style(ButtonStyle::Secondary)
-    ])]
-}
-
-pub(crate) fn event_scope_components(id_public: impl Into<String>, id_semi_public: impl Into<String>, id_private: impl Into<String>) -> Vec<CreateActionRow> {
-    vec![
-        CreateActionRow::Buttons(vec![
-            CreateButton::new(id_public)
-                .label("Abierto")
-                .style(ButtonStyle::Success),
-            CreateButton::new(id_semi_public)
-                .label("Semi-abierto")
-                .style(ButtonStyle::Secondary),
-            CreateButton::new(id_private)
-                .label("Cerrado")
-                .style(ButtonStyle::Danger)
-        ])
-    ]
-}
+use crate::events::EventSignedRole;
 
 pub(crate) fn event_comp_defaults_components(id_confirm: impl Into<String>, id_change: impl Into<String>) -> Vec<CreateActionRow> {
     vec![
@@ -36,19 +12,6 @@ pub(crate) fn event_comp_defaults_components(id_confirm: impl Into<String>, id_c
                 .style(ButtonStyle::Secondary)
         ])
     ]
-}
-
-pub(crate) fn event_components_backup(id_reserve: &str) -> CreateActionRow {
-    CreateActionRow::Buttons(vec![
-        CreateButton::new(id_reserve)
-            .label("Reserva")
-            .style(ButtonStyle::Secondary)
-            .emoji(ReactionType::Unicode("👋".to_string())),
-        CreateButton::new("signup_absent")
-            .label("Ausencia")
-            .style(ButtonStyle::Secondary)
-            .emoji(ReactionType::Unicode("❌".to_string()))
-    ])
 }
 
 pub(crate) fn select_event_channel(id: &str) -> Vec<CreateActionRow> {
@@ -98,7 +61,7 @@ pub(crate) fn select_player_class(id: impl Into<String>) -> CreateActionRow {
         .placeholder("Selecciona clase"))
 }
 
-pub(crate) fn select_flex_roles(id: impl Into<String>, roles: &[EventRole]) -> CreateActionRow {
+pub(crate) fn select_flex_roles(id: impl Into<String>, roles: &[EventSignedRole]) -> CreateActionRow {
     let role_selector = CreateSelectMenuKind::String {
         options: roles.into_iter().map(|r|
             CreateSelectMenuOption::new(r.to_string(), r.to_string())

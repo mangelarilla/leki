@@ -1,8 +1,7 @@
 use serenity::all::{Colour, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, Timestamp};
-use crate::events::models::{EventBasicData, EventRole, Player};
-use crate::events::signup::EventBackupRoles;
+use crate::events::{EventData, EventSignedRole, Player};
 
-pub(crate) fn event_embed_basic(data: &impl EventBasicData, is_preview: bool) -> CreateEmbed {
+pub(crate) fn event_embed_basic(data: &impl EventData, is_preview: bool) -> CreateEmbed {
     let embed = CreateEmbed::new()
         .title(data.title())
         .description(data.description())
@@ -22,7 +21,7 @@ pub(crate) fn event_embed_basic(data: &impl EventBasicData, is_preview: bool) ->
     }
 }
 
-pub(crate) fn event_embed_backup(data: &impl EventBackupRoles, embed: CreateEmbed) -> CreateEmbed {
+pub(crate) fn event_embed_backup(data: &impl EventData, embed: CreateEmbed) -> CreateEmbed {
     let reserves = data.reserves();
     let absents = data.absents();
     embed
@@ -42,7 +41,7 @@ pub(crate) fn format_players_embed(players: &Vec<Player>) -> String {
         .join("\n")
 }
 
-fn format_flex(roles: &Vec<EventRole>) -> String {
+fn format_flex(roles: &Vec<EventSignedRole>) -> String {
     if roles.is_empty() {
         String::new()
     } else {

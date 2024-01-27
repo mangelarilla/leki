@@ -2,32 +2,17 @@ use std::str::FromStr;
 use duration_string::DurationString;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serenity::all::{ActionRow, EmbedField, Message, UserId};
+use serenity::all::{ActionRow, EmbedField, UserId};
 use tracing::instrument;
-use crate::events::generic::models::EventGenericData;
-use crate::events::models::{EventKind, EventRole, Player, PlayersInRole};
-use crate::events::pvp::models::PvPData;
-use crate::events::trials::models::TrialData;
+use crate::events::{EventSignedRole, Player, PlayersInRole};
 use crate::prelude::get_input_value;
-
-impl From<Message> for EventKind {
-    fn from(value: Message) -> Self {
-        let event_embed = value.embeds.first().unwrap();
-        let thumbnail = event_embed.thumbnail.as_ref().unwrap();
-        match thumbnail.url.as_str() {
-            "https://images.uesp.net/d/d7/ON-icon-zonestory-assisted.png" => EventKind::Generic(EventGenericData::try_from(value).unwrap()),
-            "https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png" => EventKind::Trial(TrialData::try_from(value).unwrap()),
-            "https://images.uesp.net/9/9e/ON-icon-alliance-Ebonheart.png" => EventKind::PvP(PvPData::try_from(value).unwrap()),
-            _ => unreachable!("No other images registered")
-        }
-    }
-}
 
 #[instrument]
 pub(crate) fn parse_players_in_role(field: &EmbedField) -> PlayersInRole {
     let players = field.value.clone().lines()
         .filter(|s| !s.is_empty())
-        .map(|s| parse_player(s)).collect();
+        .filter_map(|s| parse_player(s))
+        .collect();
     let max = get_max(&field.name).map(|max| max.parse::<usize>().ok()).flatten();
     PlayersInRole::new(players, max)
 }
@@ -52,30 +37,32 @@ pub(super) fn parse_basic_from_modal(components: &Vec<ActionRow>) -> (String, St
 }
 
 #[instrument]
-pub fn parse_player(text: &str) -> Player {
+pub fn parse_player(text: &str) -> Option<Player> {
     lazy_static! {
         static ref RE: Regex = Regex::new(r"(?P<class><:.+>)*\s*<@(?P<player>\d+)>(?:\s\(Flex:\s)*(?P<flex_roles>.+[^\)])*").unwrap();
     }
-    RE.captures(text).and_then(|cap| Option::from({
+
+    RE.captures(text).and_then(|cap| {
         let class = cap.name("class")
             .map(|max| max.as_str().to_string());
         let user = cap.name("player")
-            .map(|max| UserId::new(max.as_str().parse::<u64>().unwrap()))
-            .unwrap();
+            .map(|max| max.as_str().parse::<u64>().map(|m| UserId::new(m)).ok())
+            .flatten();
+
         let flex_roles = cap.name("flex_roles")
             .map(|roles| roles.as_str()
                 .split(",")
-                .filter_map(|r| EventRole::from_str(r).ok())
+                .filter_map(|r| EventSignedRole::from_str(r).ok())
                 .collect()
             )
             .unwrap_or(vec![]);
-        if let Some(class) = class {
+
+        user.map(|user| if let Some(class) = class {
             Player::Class(user, class, flex_roles)
         } else {
             Player::Basic(user)
-        }
-
-    })).unwrap()
+        })
+    })
 }
 
 pub fn empty_to_option(text: String) -> Option<String> {

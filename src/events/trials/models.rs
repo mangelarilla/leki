@@ -1,40 +1,56 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serde::{Deserialize, Serialize};
 use serenity::all::{ActionRow, CreateActionRow, CreateEmbed, Message, UserId};
-use crate::events::models::{EventBasicData, EventComp, EventEmbed, EventRole, EventSignups, FromBasicModal, FromComp, Player, PlayersInRole, remove_from_role};
-use crate::events::parse::{empty_to_option, parse_basic_from_modal, parse_player, parse_players_in_role};
-use crate::events::signup::{EventBackupRoles, EventSignupRoles};
-use crate::events::trials::components::trial_new_comp_components;
-use crate::events::trials::embeds::{trial_comp_defaults, trial_embed};
+use crate::error::Error;
+use crate::events::embeds::format_with_role;
+use crate::events::{EventData, EventSignedRole, Player, PlayersInRole};
+use crate::events::parse::{parse_basic_from_modal, parse_player, parse_players_in_role};
+use crate::prelude::components::short_input;
+use crate::prelude::embeds::{event_embed_backup, event_embed_basic};
 use crate::prelude::get_input_value;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct TrialData {
-    #[serde(rename="titulo")] title: String,
-    #[serde(rename="descripcion")] description: String,
-    #[serde(skip)] pub(crate) datetime: Option<DateTime<Utc>>,
-    #[serde(rename="duracion")] duration: DurationString,
-    #[serde(rename="lider")] leader: UserId,
-    #[serde(rename="guias")] guides: Option<String>,
-    addons: Option<String>,
+    title: String,
+    description: String,
+    datetime: Option<DateTime<Utc>>,
+    duration: DurationString,
+    leader: UserId,
     tanks: PlayersInRole,
     dds: PlayersInRole,
     healers: PlayersInRole,
-    #[serde(rename="reservas")] reserves: PlayersInRole,
-    #[serde(rename="ausencias")] absents: PlayersInRole,
+    reserves: PlayersInRole,
+    absents: PlayersInRole,
 }
 
-impl TrialData {
-    pub fn guides(&self) -> Option<String> {self.guides.clone()}
-    pub fn addons(&self) -> Option<String> {self.addons.clone()}
+fn trial_embed(data: &TrialData, is_preview: bool) -> CreateEmbed {
+    let embed = event_embed_basic(data, is_preview)
+        .field("", "\u{200b}", false)
+        .field("", "\u{200b}", false);
+
+    let embed = format_with_role(embed, data, EventSignedRole::Tank);
+    let embed = format_with_role(embed, data, EventSignedRole::DD);
+    let embed = format_with_role(embed, data, EventSignedRole::Healer);
+
+    event_embed_backup(data, embed)
+        .field("", "\u{200b}", false)
+        .thumbnail("https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png")
 }
 
-impl FromBasicModal for TrialData {
+impl EventData for TrialData {
+    fn prefix() -> &'static str {
+        "trial"
+    }
+    fn title(&self) -> String {self.title.to_string()}
+    fn description(&self) -> String {self.description.clone()}
+    fn datetime(&self) -> Option<DateTime<Utc>> {self.datetime.clone()}
+    fn duration(&self) -> DurationString {self.duration.clone()}
+    fn leader(&self) -> UserId {self.leader.clone()}
+    fn set_datetime(&mut self, dt: DateTime<Utc>) {
+        self.datetime = Some(dt);
+    }
     fn from_basic_modal(components: &Vec<ActionRow>, leader: UserId) -> Self {
         let (title, description, duration) = parse_basic_from_modal(components);
-        let addons = get_input_value(components, 3);
-        let guides = get_input_value(components, 4);
 
         TrialData {
             title,
@@ -42,8 +58,6 @@ impl FromBasicModal for TrialData {
             datetime: None,
             duration,
             leader,
-            guides,
-            addons,
             tanks: PlayersInRole::new(vec![], Some(2)),
             dds: PlayersInRole::new(vec![], Some(8)),
             healers: PlayersInRole::new(vec![], Some(2)),
@@ -51,9 +65,6 @@ impl FromBasicModal for TrialData {
             absents: PlayersInRole::default()
         }
     }
-}
-
-impl FromComp for TrialData {
     fn from_comp_with_preview(components: &Vec<ActionRow>, message: Message) -> Self {
         let mut trial = TrialData::try_from(message).unwrap();
 
@@ -67,37 +78,26 @@ impl FromComp for TrialData {
 
         trial
     }
-}
-
-impl EventEmbed for TrialData {
     fn get_embed(&self) -> CreateEmbed {
         trial_embed(self, false)
     }
-
     fn get_embed_preview(&self) -> CreateEmbed {
         trial_embed(self, true)
     }
-}
-
-impl EventComp for TrialData {
     fn get_comp_defaults_embed() -> CreateEmbed {
-        trial_comp_defaults()
+        CreateEmbed::new()
+            .title("Composicion por defecto")
+            .field("Tanks", "2", true)
+            .field("DD", "8", true)
+            .field("Healers", "2", true)
     }
-
     fn get_comp_new_components() -> Vec<CreateActionRow> {
-        trial_new_comp_components()
+        vec![
+            short_input("Max Tanks", "trial_max_tanks", "2", false),
+            short_input("Max DD", "trial_max_dd", "8", false),
+            short_input("Max Healers", "trial_max_healers", "2", false)
+        ]
     }
-}
-
-impl EventBasicData for TrialData {
-    fn title(&self) -> String {self.title.to_string()}
-    fn description(&self) -> String {self.description.clone()}
-    fn datetime(&self) -> Option<DateTime<Utc>> {self.datetime.clone()}
-    fn duration(&self) -> DurationString {self.duration.clone()}
-    fn leader(&self) -> UserId {self.leader.clone()}
-}
-
-impl EventBackupRoles for TrialData {
     fn reserves(&self) -> Vec<Player> {self.reserves.clone().into()}
     fn absents(&self) -> Vec<Player> {self.absents.clone().into()}
     fn add_absent(&mut self, user: UserId) {
@@ -108,9 +108,34 @@ impl EventBackupRoles for TrialData {
         self.remove_signup(player.clone().into());
         self.reserves.push(player)
     }
-}
-
-impl EventSignups for TrialData {
+    fn roles() -> Vec<EventSignedRole> {
+        vec![EventSignedRole::Tank, EventSignedRole::DD, EventSignedRole::Healer]
+    }
+    fn is_role_full(&self, role: EventSignedRole) -> bool {
+        match role {
+            EventSignedRole::Tank => self.tanks.is_role_full(),
+            EventSignedRole::DD => self.dds.is_role_full(),
+            EventSignedRole::Healer => self.healers.is_role_full(),
+            _ => true
+        }
+    }
+    fn signup(&mut self, role: EventSignedRole, player: Player) {
+        self.remove_signup(player.clone().into());
+        match role {
+            EventSignedRole::Tank => self.tanks.push(player),
+            EventSignedRole::DD => self.dds.push(player),
+            EventSignedRole::Healer => self.healers.push(player),
+            _ => ()
+        }
+    }
+    fn role(&self, role: EventSignedRole) -> &PlayersInRole {
+        match role {
+            EventSignedRole::Tank => &self.tanks,
+            EventSignedRole::DD => &self.dds,
+            EventSignedRole::Healer => &self.healers,
+            _ => unreachable!("No role for Trial")
+        }
+    }
     fn signups(&self) -> Vec<Player> {
         [
             self.tanks.clone().as_slice(),
@@ -118,70 +143,36 @@ impl EventSignups for TrialData {
             self.healers.clone().as_slice()
         ].concat()
     }
-
     fn remove_signup(&mut self, user: UserId) {
-        remove_from_role(&mut self.tanks, user);
-        remove_from_role(&mut self.dds, user);
-        remove_from_role(&mut self.healers, user);
-        remove_from_role(&mut self.reserves, user);
-        remove_from_role(&mut self.absents, user);
-    }
-}
-
-impl EventSignupRoles for TrialData {
-    fn is_role_full(&self, role: EventRole) -> bool {
-        match role {
-            EventRole::Tank => self.tanks.is_role_full(),
-            EventRole::DD => self.dds.is_role_full(),
-            EventRole::Healer => self.healers.is_role_full(),
-            _ => true
-        }
-    }
-
-    fn signup(&mut self, role: EventRole, player: Player) {
-        self.remove_signup(player.clone().into());
-        match role {
-            EventRole::Tank => self.tanks.push(player),
-            EventRole::DD => self.dds.push(player),
-            EventRole::Healer => self.healers.push(player),
-            _ => ()
-        }
-    }
-
-    fn role(&self, role: EventRole) -> &PlayersInRole {
-        match role {
-            EventRole::Tank => &self.tanks,
-            EventRole::DD => &self.dds,
-            EventRole::Healer => &self.healers,
-            _ => unreachable!("No role for Trial")
-        }
+        self.tanks.remove_from_role(user);
+        self.dds.remove_from_role(user);
+        self.healers.remove_from_role(user);
+        self.reserves.remove_from_role(user);
+        self.absents.remove_from_role(user);
     }
 }
 
 impl TryFrom<Message> for TrialData {
-    type Error = anyhow::Error;
+    type Error = Error;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let trial_embed = value.embeds.first().unwrap().clone();
+        let trial_embed = value.embeds.first().ok_or(Error::ParseEvent)?.clone();
         let fields = &trial_embed.fields;
-        let datetime = fields.get(0).unwrap().value.clone()
+        let datetime = fields.get(0).ok_or(Error::ParseEvent)?.value.clone()
             .replace("<t:", "")
             .replace(":F>", "")
             .parse::<i64>().ok();
-        let tanks = fields.get(7).unwrap();
-        let dds = fields.get(8).unwrap();
-        let healers = fields.get(9).unwrap();
-        let reserves = fields.get(10).unwrap();
-        let absents = fields.get(11).unwrap();
-
+        let tanks = fields.iter().find(|&p| p.name.contains("Tanks")).ok_or(Error::ParseEvent)?;
+        let dds = fields.iter().find(|&p| p.name.contains("DD")).ok_or(Error::ParseEvent)?;
+        let healers = fields.iter().find(|&p| p.name.contains("Healers")).ok_or(Error::ParseEvent)?;
+        let reserves = fields.iter().find(|&p| p.name.contains("Reservas")).ok_or(Error::ParseEvent)?;
+        let absents = fields.iter().find(|&p| p.name.contains("Ausencias")).ok_or(Error::ParseEvent)?;
         Ok(TrialData {
-            title: trial_embed.title.clone().unwrap(),
-            description: trial_embed.description.clone().unwrap(),
-            datetime: datetime.map(|dt| DateTime::from_timestamp(dt, 0).unwrap()),
-            duration: fields.get(1).unwrap().value.parse::<DurationString>().unwrap(),
-            leader: parse_player(&fields.get(2).unwrap().value).into(),
-            guides: empty_to_option(fields.get(3).unwrap().value.clone()),
-            addons: empty_to_option(fields.get(4).unwrap().value.clone()),
+            title: trial_embed.title.clone().ok_or(Error::ParseEvent)?,
+            description: trial_embed.description.clone().ok_or(Error::ParseEvent)?,
+            datetime: datetime.map(|dt| DateTime::from_timestamp(dt, 0)).flatten(),
+            duration: fields.get(1).ok_or(Error::ParseEvent)?.value.parse::<DurationString>().map_err(|e| Error::DurationParse(e))?,
+            leader: parse_player(&fields.get(2).ok_or(Error::ParseEvent)?.value).ok_or(Error::ParseEvent)?.into(),
             tanks: parse_players_in_role(tanks),
             dds: parse_players_in_role(dds),
             healers: parse_players_in_role(healers),

@@ -5,7 +5,7 @@ use chrono::{Weekday};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serenity::all::ActionRowComponent::InputText;
-use serenity::all::{ActionRow};
+use serenity::all::{ActionRow, ComponentInteraction, ComponentInteractionDataKind, UserId};
 use tracing::{instrument};
 
 pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String> {
@@ -18,6 +18,24 @@ pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String
     } else {
         None
     }
+}
+
+pub fn get_selected_option(interaction: &ComponentInteraction) -> Option<String> {
+    if let ComponentInteractionDataKind::StringSelect {values} = &interaction.data.kind {
+        Some(values.first().unwrap().to_string())
+    } else { None }
+}
+
+pub fn get_selected_options(interaction: &ComponentInteraction) -> Vec<String> {
+    if let ComponentInteractionDataKind::StringSelect {values} = &interaction.data.kind {
+        values.clone()
+    } else { vec![] }
+}
+
+pub fn get_selected_users(interaction: &ComponentInteraction) -> Vec<UserId> {
+    if let ComponentInteractionDataKind::UserSelect {values} = &interaction.data.kind {
+        values.clone()
+    } else { vec![] }
 }
 
 pub fn all_weekdays() -> Vec<&'static str> {

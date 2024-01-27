@@ -5,50 +5,24 @@ mod utils;
 mod tasks;
 pub mod events;
 mod commands;
+mod messages;
 
 use std::sync::Arc;
 use anyhow::anyhow;
+use serenity::all::{CreateInteractionResponse};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use tracing::{info};
+use tracing::{error, info};
 use shuttle_secrets::SecretStore;
 use crate::commands::register_commands;
+use crate::messages::BotMessageKind;
 use crate::tasks::reset_all_reminders;
+use crate::prelude::*;
 
 struct Bot;
-
-#[async_trait]
-impl EventHandler for Bot {
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        info!("{} is connected!", ready.user.name);
-
-        register_commands(&ctx.http, GuildId::new(1134046249293717514)).await;
-        register_commands(&ctx.http, GuildId::new(592035476538392612)).await;
-
-        reset_all_reminders(Arc::new(ctx), &ready).await;
-    }
-
-    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        match interaction {
-            Interaction::Command(command) => {
-                info!("Received command interaction: {}", &command.data.name);
-                interactions::handle_commands(&ctx, command).await;
-            }
-            Interaction::Component(component) => {
-                info!("Received component interaction: {}", &component.data.custom_id);
-                interactions::handle_component(&ctx, component).await;
-            }
-            Interaction::Modal(modal) => {
-                info!("Received component interaction: {}", &modal.data.custom_id);
-                interactions::handle_modal(&ctx, modal).await;
-            }
-            _ => {}
-        }
-    }
-}
 
 #[shuttle_runtime::main]
 async fn serenity(
@@ -69,4 +43,119 @@ async fn serenity(
         .expect("Err creating client");
 
     Ok(client.into())
+}
+
+#[cfg(debug_assertions)]
+fn get_runtime_guild() -> GuildId {
+    // Pole Lab
+    GuildId::new(1134046249293717514)
+}
+
+#[cfg(not(debug_assertions))]
+fn get_runtime_guild() -> GuildId {
+    // Bad Life
+    GuildId::new(592035476538392612)
+}
+
+fn get_interaction_guild(interaction: &Interaction) -> Option<GuildId> {
+    match interaction {
+        Interaction::Command(c) => c.guild_id,
+        Interaction::Autocomplete(a) => a.guild_id,
+        Interaction::Component(c) => c.guild_id,
+        Interaction::Modal(m) => m.guild_id,
+        _ => None
+    }
+}
+
+#[async_trait]
+impl EventHandler for Bot {
+    async fn ready(&self, ctx: Context, ready: Ready) {
+        info!("{} is connected!", ready.user.name);
+
+        register_commands(&ctx, get_runtime_guild()).await;
+
+        reset_all_reminders(Arc::new(ctx), &ready).await;
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if get_interaction_guild(&interaction).is_some_and(|g| g != get_runtime_guild()) {
+            return;
+        }
+
+        let pipeline = interactions::define_pipeline();
+        let handler = match &interaction {
+            Interaction::Command(c) => pipeline.get(&c.data.name),
+            Interaction::Component(c) => pipeline.get(&c.data.custom_id),
+            Interaction::Modal(c) => pipeline.get(&c.data.custom_id),
+            _ => None
+        };
+
+        if let Some(handler) = handler {
+            let response = match handler {
+                BotMessageKind::Interaction(i) => i.message(),
+                BotMessageKind::FromModal(m) => {
+                    if let Interaction::Modal(modal) = &interaction {
+                        info!("FromModal interaction: {}", modal.data.custom_id);
+                        m.message(modal)
+                    } else {
+                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
+                    }
+                }
+                BotMessageKind::FromMessage(m) => {
+                    if let Interaction::Component(component) = &interaction {
+                        info!("FromMessage interaction: {}", component.data.custom_id);
+                        m.message(component)
+                    } else {
+                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
+                    }
+                }
+                BotMessageKind::FromMessageAsync(m) => {
+                    if let Interaction::Component(component) = &interaction {
+                        info!("FromMessageAsync interaction: {}", component.data.custom_id);
+                        let response = m.message(component, &ctx).await;
+                        response
+                    } else {
+                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
+                    }
+                }
+                BotMessageKind::FromCommandAsync(m) => {
+                    if let Interaction::Command(command) = &interaction {
+                        let response = m.message(command, &ctx).await;
+                        response
+                    } else {
+                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
+                    }
+                }
+                BotMessageKind::FromCommand(m) => {
+                    if let Interaction::Command(command) = &interaction {
+                        m.message(command)
+                    } else {
+                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
+                    }
+                }
+            };
+
+            create_response(&ctx, &interaction, response).await
+        } else {
+            error!("Unknown interaction: {interaction:?}");
+        }
+    }
+}
+
+async fn create_response(ctx: &Context, interaction: &Interaction, response: Result<CreateInteractionResponse>) {
+    match response {
+        Ok(response) => {
+            let create_response = match interaction {
+                Interaction::Command(i) => i.create_response(&ctx.http, response).await,
+                Interaction::Component(i) => i.create_response(&ctx.http, response).await,
+                Interaction::Modal(i) => i.create_response(&ctx.http, response).await,
+                _ => Ok(())
+            };
+
+            if let Err(why) = create_response {
+                error!("{why:?}")
+            }
+        }
+        Err(why) => error!("{why:?}")
+    }
 }

@@ -1,7 +1,7 @@
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-    #[error(transparent)]
-    DurationParse(#[from] anyhow::Error),
+    #[error("{0}")]
+    DurationParse(String),
     #[error(transparent)]
     Serenity(#[from] serenity::prelude::SerenityError),
     #[error(transparent)]
@@ -15,5 +15,7 @@ pub enum Error {
     #[error("Interaction not registered `{0}`")]
     UnknownInteraction(String),
     #[error("EventRole not registered `{0}`")]
-    UnknownRole(String)
+    UnknownRole(String),
+    #[error("Parse event error")]
+    ParseEvent,
 }
