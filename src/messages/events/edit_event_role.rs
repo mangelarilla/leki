@@ -20,21 +20,13 @@ impl<T: EventData + 'static + Sync + Send> EditEventRole<T> {
 
 impl<T: EventData + 'static + Sync + Send> BotInteractionFromComponentMessage for EditEventRole<T>
     where Error: From<<T as TryFrom<serenity::all::Message>>::Error>{
-    fn message(&self, interaction: &ComponentInteraction) -> Result<CreateInteractionResponse> {
-        let event = T::try_from(*interaction.message.clone())?;
-        let components = if let EventRole::Signed(s) = self.role {
-            vec![
-                CreateActionRow::SelectMenu(CreateSelectMenu::new(
-                    T::prefix_id(format!("edit_role_{}", self.role.to_id())),
-                    CreateSelectMenuKind::User { default_users: Some(event.role(s).clone().into())})
-                ),
-                CreateActionRow::Buttons(vec![edit_button::<T>("edit", EventRole::Reserve, ButtonStyle::Secondary)])
-            ]
-        } else {
-            vec![
-                CreateActionRow::Buttons(vec![edit_button::<T>("edit", EventRole::Reserve, ButtonStyle::Secondary)])
-            ]
-        };
+    fn message(&self, _interaction: &ComponentInteraction) -> Result<CreateInteractionResponse> {
+        let components = vec![
+            CreateActionRow::SelectMenu(CreateSelectMenu::new(
+                T::prefix_id(format!("edit_role_{}", self.role.to_id())),
+                CreateSelectMenuKind::User { default_users: None})
+            )
+        ];
 
         Ok(CreateInteractionResponse::UpdateMessage(
             CreateInteractionResponseMessage::new()
