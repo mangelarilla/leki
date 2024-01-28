@@ -22,39 +22,37 @@ use crate::messages::BotMessageKind;
 use crate::tasks::reset_all_reminders;
 use crate::prelude::*;
 
-struct Bot;
+struct Bot {
+    guild: GuildId
+}
 
 #[shuttle_runtime::main]
 async fn serenity(
     #[shuttle_secrets::Secrets] secret_store: SecretStore
 ) -> shuttle_serenity::ShuttleSerenity {
-    // Get the discord token set in `Secrets.toml`
     let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
         token
     } else {
         return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
     };
 
+    let guild = if let Some(guild) = secret_store.get("DISCORD_GUILD") {
+        match guild.parse::<u64>() {
+            Ok(id) => GuildId::new(id),
+            Err(e) => return Err(anyhow!("{}", e).into())
+        }
+    } else {
+        return Err(anyhow!("'DISCORD_GUILD' was not found").into());
+    };
+
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot)
+        .event_handler(Bot { guild })
         .await
         .expect("Err creating client");
 
     Ok(client.into())
-}
-
-#[cfg(debug_assertions)]
-fn get_runtime_guild() -> GuildId {
-    // Pole Lab
-    GuildId::new(1134046249293717514)
-}
-
-#[cfg(not(debug_assertions))]
-fn get_runtime_guild() -> GuildId {
-    // Bad Life
-    GuildId::new(592035476538392612)
 }
 
 fn get_interaction_guild(interaction: &Interaction) -> Option<GuildId> {
@@ -72,13 +70,13 @@ impl EventHandler for Bot {
     async fn ready(&self, ctx: Context, ready: Ready) {
         info!("{} is connected!", ready.user.name);
 
-        register_commands(&ctx, get_runtime_guild()).await;
+        register_commands(&ctx, self.guild).await;
 
         reset_all_reminders(Arc::new(ctx), &ready).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if get_interaction_guild(&interaction).is_some_and(|g| g != get_runtime_guild()) {
+        if get_interaction_guild(&interaction).is_some_and(|g| g != self.guild) {
             return;
         }
 
