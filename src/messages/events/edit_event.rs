@@ -49,7 +49,7 @@ pub(super) fn edit_event<T: EventData>(event: T) -> CreateInteractionResponseMes
 
 pub(super) fn edit_button<T: EventData>(prefix: &str, role: EventRole, style: ButtonStyle) -> CreateButton {
     CreateButton::new(T::prefix_id(format!("{prefix}_{}", role.to_id())))
-        .label(format!("Editar {role}"))
+        .label(format!("Mover a {role}"))
         .emoji(role.emoji())
         .style(style)
 }

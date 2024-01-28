@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 use async_trait::async_trait;
-use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, GetMessages};
+use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, GetMessages};
 use serenity::builder::CreateSelectMenu;
 use crate::events::{EventData, EventRole, Player};
-use crate::messages::{BotInteractionFromComponentMessage, BotInteractionFromComponentMessageAsync};
-use crate::messages::events::edit_event::{edit_button, edit_event};
+use crate::messages::{BotInteractionFromComponentMessageAsync, BotInteractionMessage};
+use crate::messages::events::edit_event::{edit_event};
 use crate::prelude::*;
 
 pub struct EditEventRole<T: EventData + 'static + Sync + Send> {
@@ -18,9 +18,8 @@ impl<T: EventData + 'static + Sync + Send> EditEventRole<T> {
     }
 }
 
-impl<T: EventData + 'static + Sync + Send> BotInteractionFromComponentMessage for EditEventRole<T>
-    where Error: From<<T as TryFrom<serenity::all::Message>>::Error>{
-    fn message(&self, _interaction: &ComponentInteraction) -> Result<CreateInteractionResponse> {
+impl<T: EventData + 'static + Sync + Send> BotInteractionMessage for EditEventRole<T> {
+    fn message(&self) -> Result<CreateInteractionResponse> {
         let components = vec![
             CreateActionRow::SelectMenu(CreateSelectMenu::new(
                 T::prefix_id(format!("edit_role_{}", self.role.to_id())),

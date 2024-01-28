@@ -83,7 +83,7 @@ fn define_event_pipeline<T>(pipeline: &mut InteractionPipeline, trigger: &str)
         pipeline.message_async(class_id, class_handler);
         pipeline.message(T::prefix_id(role.to_id()), handler);
 
-        pipeline.message(T::prefix_id(format!("edit_{}", role.to_id())), EditEventRole::<T>::new(EventRole::Signed(role)));
+        pipeline.interaction(T::prefix_id(format!("edit_{}", role.to_id())), EditEventRole::<T>::new(EventRole::Signed(role)));
         pipeline.message_async(T::prefix_id(format!("edit_role_{}", role.to_id())), EditEventRole::<T>::new(EventRole::Signed(role)));
     }
 
@@ -94,7 +94,7 @@ fn define_event_pipeline<T>(pipeline: &mut InteractionPipeline, trigger: &str)
     pipeline.message_async(class_id, class_handler);
 
     pipeline.message(T::prefix_id(EventRole::Reserve.to_id()), handler);
-    pipeline.message(T::prefix_id(format!("edit_{}", EventRole::Reserve.to_id())), EditEventRole::<T>::new(EventRole::Reserve));
+    pipeline.interaction(T::prefix_id(format!("edit_{}", EventRole::Reserve.to_id())), EditEventRole::<T>::new(EventRole::Reserve));
     pipeline.message_async(T::prefix_id(format!("edit_role_{}", EventRole::Reserve.to_id())), EditEventRole::<T>::new(EventRole::Reserve));
 
     pipeline.message(T::prefix_id(EventRole::Absent.to_id()), SignupEvent::<T>::new(EventRole::Absent));
