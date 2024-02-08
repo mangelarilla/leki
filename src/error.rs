@@ -10,12 +10,16 @@ pub enum Error {
     ParseInt(#[from] std::num::ParseIntError),
     #[error(transparent)]
     IO(#[from] std::io::Error),
+    #[error(transparent)]
+    Persist(#[from] shuttle_persist::PersistError),
     #[error("Role `{0}` is full")]
     RoleFull(String),
     #[error("Interaction not registered `{0}`")]
     UnknownInteraction(String),
     #[error("EventRole not registered `{0}`")]
     UnknownRole(String),
+    #[error("PlayerClass not registered `{0}`")]
+    UnknownClass(String),
     #[error("Parse event error")]
     ParseEvent,
 }

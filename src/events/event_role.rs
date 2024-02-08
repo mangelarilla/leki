@@ -1,121 +1,79 @@
 use std::fmt::Display;
 use std::str::FromStr;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ButtonStyle, CreateButton, EmojiId, ReactionType};
-use crate::error::Error;
+use strum::EnumIter;
+use crate::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Serialize, Deserialize, EnumIter)]
 pub enum EventRole {
-    Signed(EventSignedRole),
+    Tank, Healer, Brawler, Bomber, Ganker, DD,
     Reserve, Absent
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub enum EventSignedRole {
-    Tank, Healer, Brawler, Bomber, Ganker, DD, Participant
-}
-
-impl EventSignedRole {
+impl EventRole {
     pub fn emoji(&self) -> ReactionType {
         match self {
-            EventSignedRole::Tank => ReactionType::Custom { animated: false, id: EmojiId::new(1154134006036713622), name: Some("tank".to_string())},
-            EventSignedRole::Healer => ReactionType::Custom { animated: false, id: EmojiId::new(1154134924153065544), name: Some("healer".to_string())},
-            EventSignedRole::Brawler => ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())},
-            EventSignedRole::Bomber => ReactionType::Unicode("💣".to_string()),
-            EventSignedRole::Ganker => ReactionType::Unicode("🔪".to_string()),
-            EventSignedRole::DD => ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())},
-            EventSignedRole::Participant => ReactionType::Unicode("✅".to_string())
+            EventRole::Tank => ReactionType::Custom { animated: false, id: EmojiId::new(1154134006036713622), name: Some("tank".to_string())},
+            EventRole::Healer => ReactionType::Custom { animated: false, id: EmojiId::new(1154134924153065544), name: Some("healer".to_string())},
+            EventRole::Brawler => ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())},
+            EventRole::Bomber => ReactionType::Unicode("💣".to_string()),
+            EventRole::Ganker => ReactionType::Unicode("🔪".to_string()),
+            EventRole::DD => ReactionType::Custom { animated: false, id: EmojiId::new(1154134731756150974), name: Some("dd".to_string())},
+            EventRole::Reserve => ReactionType::Unicode("👋".to_string()),
+            EventRole::Absent => ReactionType::Unicode("❌".to_string()),
         }
     }
-    pub fn to_button(&self, id: &str) -> CreateButton {
+
+    pub fn to_button(&self, id: impl Into<String>, label: impl Into<String>) -> CreateButton {
         CreateButton::new(id)
-            .label(self.to_string())
-            .style(ButtonStyle::Success)
+            .label(label)
+            .style(match self {
+                EventRole::Reserve | EventRole::Absent => ButtonStyle::Secondary,
+                _ => ButtonStyle::Success
+            })
             .emoji(self.emoji())
     }
 
     pub fn to_id(&self) -> String {
         self.to_string().to_lowercase()
     }
-}
 
-impl EventRole {
-    pub fn emoji(&self) -> ReactionType {
-        match self {
-            EventRole::Reserve => ReactionType::Unicode("👋".to_string()),
-            EventRole::Absent => ReactionType::Unicode("❌".to_string()),
-            EventRole::Signed(s) => s.emoji()
-        }
-    }
-    pub fn to_button(&self, id: &str) -> CreateButton {
-        if let EventRole::Signed(s) = self {
-            s.to_button(id)
-        } else {
-            CreateButton::new(id)
-                .label(self.to_string())
-                .style(ButtonStyle::Secondary)
-                .emoji(self.emoji())
-        }
-    }
-
-    pub fn to_id(&self) -> String {
-        self.to_string().to_lowercase()
-    }
-}
-
-impl FromStr for EventSignedRole {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "Tanks" => Ok(EventSignedRole::Tank),
-            "Brawlers" => Ok(EventSignedRole::Brawler),
-            "Healers" => Ok(EventSignedRole::Healer),
-            "Bombers" => Ok(EventSignedRole::Bomber),
-            "Gankers" => Ok(EventSignedRole::Ganker),
-            "Participantes" => Ok(EventSignedRole::Participant),
-            "DD" => Ok(EventSignedRole::DD),
-            _ => Err(Error::UnknownRole(s.to_string()))
-        }
-    }
-}
-
-impl FromStr for EventRole {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match EventSignedRole::from_str(s) {
-            Ok(s) => Ok(EventRole::Signed(s)),
-            Err(_) => match s {
-                "Reservas" => Ok(EventRole::Reserve),
-                "Ausencias" => Ok(EventRole::Absent),
-                _ => Err(Error::UnknownRole(s.to_string()))
-            }
-        }
-    }
-}
-
-impl Display for EventSignedRole {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            EventSignedRole::Tank => "Tanks",
-            EventSignedRole::Healer => "Healers",
-            EventSignedRole::Brawler => "Brawlers",
-            EventSignedRole::Bomber => "Bombers",
-            EventSignedRole::Ganker => "Gankers",
-            EventSignedRole::DD => "DD",
-            EventSignedRole::Participant => "Participantes"
-        }.to_string();
-        write!(f, "{}", str)
+    pub fn is_backup_role(&self) -> bool {
+        self == &EventRole::Absent || self == &EventRole::Reserve
     }
 }
 
 impl Display for EventRole {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            EventRole::Reserve => "Reservas".to_string(),
-            EventRole::Absent => "Ausencias".to_string(),
-            EventRole::Signed(r) => r.to_string()
+            EventRole::Tank => "Tanks",
+            EventRole::Healer => "Healers",
+            EventRole::Brawler => "Brawlers",
+            EventRole::Bomber => "Bombers",
+            EventRole::Ganker => "Gankers",
+            EventRole::DD => "DD",
+            EventRole::Reserve => "Reservas",
+            EventRole::Absent => "Ausencias",
         }.to_string();
         write!(f, "{}", str)
+    }
+}
+
+impl FromStr for EventRole {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "Tanks" => Ok(EventRole::Tank),
+            "Healers" => Ok(EventRole::Healer),
+            "Brawlers" => Ok(EventRole::Brawler),
+            "Bombers" => Ok(EventRole::Bomber),
+            "Gankers" => Ok(EventRole::Ganker),
+            "DD" => Ok(EventRole::DD),
+            "Reservas" => Ok(EventRole::Reserve),
+            "Ausencias" => Ok(EventRole::Absent),
+            _ => Err(Error::UnknownRole(s.to_string()))
+        }
     }
 }

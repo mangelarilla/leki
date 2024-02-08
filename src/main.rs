@@ -15,20 +15,22 @@ use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
+use shuttle_persist::PersistInstance;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
 use crate::commands::register_commands;
-use crate::messages::BotMessageKind;
 use crate::tasks::reset_all_reminders;
 use crate::prelude::*;
 
 struct Bot {
-    guild: GuildId
+    guild: GuildId,
+    store: PersistInstance
 }
 
 #[shuttle_runtime::main]
 async fn serenity(
-    #[shuttle_secrets::Secrets] secret_store: SecretStore
+    #[shuttle_secrets::Secrets] secret_store: SecretStore,
+    #[shuttle_persist::Persist] persist: PersistInstance
 ) -> shuttle_serenity::ShuttleSerenity {
     let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
         token
@@ -48,7 +50,7 @@ async fn serenity(
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot { guild })
+        .event_handler(Bot { guild, store: persist })
         .await
         .expect("Err creating client");
 
@@ -72,7 +74,7 @@ impl EventHandler for Bot {
 
         register_commands(&ctx, self.guild).await;
 
-        reset_all_reminders(Arc::new(ctx), &ready).await;
+        reset_all_reminders(Arc::new(ctx), &ready, Arc::new(self.store.clone())).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -89,48 +91,11 @@ impl EventHandler for Bot {
         };
 
         if let Some(handler) = handler {
-            let response = match handler {
-                BotMessageKind::Interaction(i) => i.message(),
-                BotMessageKind::FromModal(m) => {
-                    if let Interaction::Modal(modal) = &interaction {
-                        info!("FromModal interaction: {}", modal.data.custom_id);
-                        m.message(modal)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromMessage(m) => {
-                    if let Interaction::Component(component) = &interaction {
-                        info!("FromMessage interaction: {}", component.data.custom_id);
-                        m.message(component)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromMessageAsync(m) => {
-                    if let Interaction::Component(component) = &interaction {
-                        info!("FromMessageAsync interaction: {}", component.data.custom_id);
-                        let response = m.message(component, &ctx).await;
-                        response
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromCommandAsync(m) => {
-                    if let Interaction::Command(command) = &interaction {
-                        let response = m.message(command, &ctx).await;
-                        response
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromCommand(m) => {
-                    if let Interaction::Command(command) = &interaction {
-                        m.message(command)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
+            let response = match &interaction {
+                Interaction::Command(c) => handler.command(c, &ctx, &self.store).await,
+                Interaction::Component(c) => handler.component(c, &ctx, &self.store).await,
+                Interaction::Modal(m) => handler.modal(m, &ctx, &self.store).await,
+                _ => Err(Error::UnknownInteraction(format!("{interaction:?}")))
             };
 
             create_response(&ctx, &interaction, response).await
