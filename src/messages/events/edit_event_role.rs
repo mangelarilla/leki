@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 use async_trait::async_trait;
+use log::info;
 use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, GetMessages};
 use serenity::builder::CreateSelectMenu;
 use crate::events::{EventData, EventRole, Player};
@@ -43,9 +44,10 @@ impl<T: EventData + 'static + Sync + Send> BotInteractionFromComponentMessageAsy
         let channel_messages = interaction.channel_id.messages(&ctx.http, GetMessages::new()
             .limit(5)).await?;
         let mut original_msg = channel_messages.into_iter()
-            .find(|msg| !msg.pinned && msg.author.id == 1148032756899643412)// Leki id
+            .find(|msg| msg.id != interaction.message.id && msg.pinned && msg.author.id == 1148032756899643412)// Leki id
             .unwrap();
 
+        info!("{original_msg:#?}");
         let mut event = T::try_from(original_msg.clone())?;
         if self.role == EventRole::Reserve {
             for user in users {
