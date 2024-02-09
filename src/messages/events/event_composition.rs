@@ -1,8 +1,6 @@
-use std::collections::HashMap;
 use duration_string::DurationString;
 use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, ModalInteraction};
-use shuttle_persist::PersistInstance;
-use crate::events::{Event, EventKind, EventRole};
+use crate::events::{EventKind, EventRole};
 use crate::interactions::pipelines::InteractionPipeline;
 use crate::messages::BotInteractionMessage;
 use crate::messages::events::{EventScope};
@@ -60,36 +58,25 @@ impl EventComposition {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EventComposition {
-    async fn modal(&self, interaction: &ModalInteraction, _ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn modal(&self, interaction: &ModalInteraction, _ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let title = get_input_value(&interaction.data.components, 0).unwrap();
         let duration = get_input_value(&interaction.data.components, 1)
             .unwrap().parse::<DurationString>().unwrap();
         let description = get_input_value(&interaction.data.components, 2).unwrap();
 
-        let mut event = Event {
-            title, description, duration,
-            kind: self.kind,
-            datetime: None,
-            leader: interaction.user.id,
-            roles: HashMap::new(),
-            scope: events::EventScopes::Public,
-            scheduled_event: None
-        };
-
-        for role in self.kind.roles() {
-            event.roles.insert(role, (vec![], self.kind.default_role_max(role)));
-        }
-
-        store.save(interaction.message.as_ref().unwrap().id.to_string().as_str(), &event)?;
+        let event = store.create_event(
+            interaction.message.as_ref().unwrap().id,
+            title, description, duration, self.kind, interaction.user.id
+        ).await?;
 
         let response = CreateInteractionResponseMessage::new()
             .add_embed(event.embed_preview())
             .add_embed(CreateEmbed::new()
                 .title("Composicion por defecto")
-                .fields(event.roles.iter().filter_map(|(role, (_, max))| {
-                    match role {
+                .fields(event.roles.iter().filter_map(|pr| {
+                    match pr.role {
                         EventRole::Reserve | EventRole::Absent => None,
-                        _ => Some((role.to_string(), max.map(|max| max.to_string()).unwrap_or("N/A".to_string()), true))
+                        _ => Some((pr.role.to_string(), pr.max.map(|max| max.to_string()).unwrap_or("N/A".to_string()), true))
                     }
                 })))
             .components(vec![CreateActionRow::Buttons(vec![
@@ -104,9 +91,7 @@ impl BotInteractionMessage for EventComposition {
         Ok(CreateInteractionResponse::UpdateMessage(response))
     }
 
-    async fn component(&self, interaction: &ComponentInteraction, _ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
-        let mut event = store.load::<Event>(interaction.message.id.to_string().as_str())?;
-
+    async fn component(&self, interaction: &ComponentInteraction, _ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let mut components = if let Some(role) = self.kind.roles().into_iter()
             .find(|r| self.role_comp_id(*r) == interaction.data.custom_id) {
             let kind = CreateSelectMenuKind::String {
@@ -122,9 +107,7 @@ impl BotInteractionMessage for EventComposition {
             if let Some(role) = self.kind.roles().into_iter()
                 .find(|r| self.role_comp_select_id(*r) == interaction.data.custom_id) {
                 let value = get_selected_option(interaction).map(|n| n.parse::<usize>().ok()).flatten().unwrap();
-                event.roles.insert(role, (vec![], Some(value)));
-
-                store.save(interaction.message.id.to_string().as_str(), &event)?;
+                store.update_role_max(interaction.message.id, role, value).await?;
             }
             vec![self.button_comp()]
         };
@@ -135,6 +118,7 @@ impl BotInteractionMessage for EventComposition {
                 .style(ButtonStyle::Secondary)
         ]));
 
+        let event = store.get_event(interaction.message.id).await?;
         Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new()
             .embed(event.embed_preview())
             .components(components)

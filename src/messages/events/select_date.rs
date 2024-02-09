@@ -1,10 +1,9 @@
 use serenity::all::{ChannelType, ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption};
-use shuttle_persist::PersistInstance;
 use crate::events::{EventKind};
 use crate::interactions::pipelines::InteractionPipeline;
 use crate::messages::BotInteractionMessage;
 use crate::messages::events::{CreateEvent};
-use crate::prelude::get_selected_channels;
+use crate::prelude::*;
 
 #[derive(Clone)]
 pub(crate) struct SelectDate {
@@ -25,7 +24,7 @@ impl SelectDate {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for SelectDate {
-    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, _store: &PersistInstance) -> crate::prelude::Result<CreateInteractionResponse> {
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, _store: &Store) -> Result<CreateInteractionResponse> {
         let components = if interaction.data.custom_id == self.day_id {
             let channel_selector = CreateSelectMenuKind::Channel {
                 channel_types: Some(vec![ChannelType::Text]),

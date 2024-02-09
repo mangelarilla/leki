@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            delete from events.players\n            where message_id = $1 and user_id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e76ba1ba7e71abf2d2f6157cddbe971478914ad10e9f6c5a346571c8c64f6497"
+}

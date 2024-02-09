@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
@@ -20,18 +19,27 @@ pub struct Event {
     pub datetime: Option<DateTime<Utc>>,
     pub duration: DurationString,
     pub leader: UserId,
-    pub roles: HashMap<EventRole, (Vec<Player>, Option<usize>)>,
+    pub roles: Vec<PlayersInRole>,
     pub scheduled_event: Option<ScheduledEventId>
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PlayersInRole {
+    pub role: EventRole,
+    pub players: Vec<Player>,
+    pub max: Option<usize>
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "kind", rename_all = "lowercase")]
 pub enum EventKind {
     Trial, PvP
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "scope", rename_all = "lowercase")]
 pub enum EventScopes {
-    Public, Private, SemiPublic
+    Public, Private, #[sqlx(rename = "semi-public")] SemiPublic
 }
 
 impl Event {
@@ -45,14 +53,14 @@ impl Event {
             .field(":hourglass_flowing_sand: Duración", self.duration.to_string(), true)
             .field(":crown: Lider", Mention::User(self.leader).to_string(), true)
             .fields(self.roles.iter()
-                .map(|(role, (players, max))| {
-                    let formatted_label = if let Some(max) = max {
-                        format!("{} {role} ({}/{max})", role.emoji().to_string(), players.len())
+                .map(|pr| {
+                    let formatted_label = if let Some(max) = pr.max {
+                        format!("{} {} ({}/{max})", pr.role.emoji().to_string(), pr.role, pr.players.len())
                     } else {
-                        format!("{} {role} ({})", role.emoji().to_string(), players.len())
+                        format!("{} {} ({})", pr.role.emoji().to_string(), pr.role, pr.players.len())
                     };
 
-                    (formatted_label, format_players_embed(players), false)
+                    (formatted_label, format_players_embed(&pr.players), false)
                 })
             )
             .field("", "\u{200b}", false)
@@ -67,26 +75,6 @@ impl Event {
     pub fn embed_preview(&self) -> CreateEmbed {
         self.embed()
             .author(CreateEmbedAuthor::new("Previsualizacion"))
-    }
-
-    pub fn signup(&mut self, role: EventRole, mut player: Player) {
-        self.remove_all(player.id);
-        if let Some((mut players, max)) = self.roles.remove(&role) {
-            if max.is_some_and(|m| m <= players.len()) {
-                player.flex.push(EventRole::Reserve);
-                self.signup(EventRole::Reserve, player)
-            } else {
-                players.push(player);
-            }
-            self.roles.insert(role, (players, max));
-        }
-    }
-
-    fn remove_all(&mut self, user: UserId) {
-        for (role, (players, max)) in self.roles.clone() {
-            let players = players.clone().into_iter().filter(|p| p.id != user).collect();
-            self.roles.insert(role, (players, max));
-        }
     }
 }
 

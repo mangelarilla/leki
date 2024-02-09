@@ -1,6 +1,5 @@
 use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind};
-use shuttle_persist::PersistInstance;
-use crate::events::{Event, EventKind, EventRole, EventScopes, Player};
+use crate::events::{EventKind, EventRole, EventScopes, Player};
 use crate::interactions::pipelines::InteractionPipeline;
 use crate::messages::BotInteractionMessage;
 use crate::messages::events::{SelectDate};
@@ -29,8 +28,7 @@ impl EventScope {
         pipeline.add(&scope.id_semi_public, scope.clone());
 
         for role in kind.roles() {
-            pipeline.add(scope.role_scope_id(role, EventScopes::SemiPublic), scope.clone());
-            pipeline.add(scope.role_scope_id(role, EventScopes::Private), scope.clone());
+            pipeline.add(scope.role_scope_id(role), scope.clone());
         }
 
         let day = SelectDate::new(kind, pipeline);
@@ -40,20 +38,20 @@ impl EventScope {
         scope
     }
 
-    fn role_scope_id(&self, r: EventRole, scope: EventScopes) -> String {
-        format!("{}_{scope}_{}", self.kind, r.to_id())
+    fn role_scope_id(&self, r: EventRole) -> String {
+        format!("{}_scope_{}", self.kind, r.to_id())
     }
 
-    fn role_scope_select_id(&self, r: EventRole, scope: EventScopes) -> String {
-        format!("{}_{scope}_select_{}", self.kind, r.to_id())
+    fn role_scope_select_id(&self, r: EventRole) -> String {
+        format!("{}_scope_select_{}", self.kind, r.to_id())
     }
 
-    fn scope_role_buttons(&self, scope: EventScopes) -> CreateActionRow {
+    fn scope_role_buttons(&self) -> CreateActionRow {
         CreateActionRow::Buttons(self.kind.roles()
             .into_iter()
             .filter_map(|role| match role {
                 EventRole::Absent => None,
-                _ => Some(role.to_button(self.role_scope_id(role, scope), role.to_string()))
+                _ => Some(role.to_button(self.role_scope_id(role), role.to_string()))
             }).collect()
         )
     }
@@ -83,44 +81,39 @@ impl EventScope {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EventScope {
-    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
-        let mut event = store.load::<Event>(interaction.message.id.to_string().as_str())?;
-
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let components = if interaction.data.custom_id == self.id_semi_public {
-            event.scope = EventScopes::SemiPublic;
-            vec![self.scope_role_buttons(EventScopes::SemiPublic), self.scope_confirm()]
+            store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
+            vec![self.scope_role_buttons(), self.scope_confirm()]
         } else if interaction.data.custom_id == self.id_private {
-            event.scope = EventScopes::Private;
-            vec![self.scope_role_buttons(EventScopes::Private), self.scope_confirm()]
+            store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
+            vec![self.scope_role_buttons(), self.scope_confirm()]
         } else if let Some(role) = self.kind.roles().into_iter()
-            .find(|r| self.role_scope_id(*r, event.scope) == interaction.data.custom_id) {
+            .find(|r| self.role_scope_id(*r) == interaction.data.custom_id) {
             vec![
                 CreateActionRow::SelectMenu(
-                    CreateSelectMenu::new(self.role_scope_select_id(role, event.scope), CreateSelectMenuKind::User {
+                    CreateSelectMenu::new(self.role_scope_select_id(role), CreateSelectMenuKind::User {
                         default_users: None
                     }).max_values(12)
                 ),
                 self.scope_confirm()
             ]
         } else if let Some(role) = self.kind.roles().into_iter()
-            .find(|r| self.role_scope_select_id(*r, event.scope) == interaction.data.custom_id) {
-            let (mut players, max) = event.roles.remove(&role).unwrap();
+            .find(|r| self.role_scope_select_id(*r) == interaction.data.custom_id) {
             let guild = interaction.guild_id.clone().unwrap();
             for user in get_selected_users(interaction) {
                 let member = guild.member(&ctx.http, user).await?;
-                players.push(Player::new(user, member.nick.unwrap()));
+                store.signup_player(interaction.message.id, role, Player::new(user, member.nick.unwrap())).await?;
             }
-            event.roles.insert(role, (players, max));
-            vec![self.scope_role_buttons(event.scope), self.scope_confirm()]
+            vec![self.scope_role_buttons(), self.scope_confirm()]
         } else {
             vec![self.scope_buttons()]
         };
 
+        let event = store.get_event(interaction.message.id).await?;
         let response = CreateInteractionResponseMessage::new()
             .embed(event.embed_preview())
             .components(components);
-
-        store.save(interaction.message.id.to_string().as_str(), event)?;
 
         Ok(CreateInteractionResponse::UpdateMessage(response))
     }

@@ -1,7 +1,6 @@
 use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, MessageId};
 use serenity::builder::CreateSelectMenu;
-use shuttle_persist::PersistInstance;
-use crate::events::{Event, EventRole, Player};
+use crate::events::{EventRole, Player};
 use crate::messages::{BotInteractionMessage};
 use crate::messages::events::edit_event::edit_event;
 use crate::prelude::*;
@@ -23,21 +22,22 @@ impl EditEventRole {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EditEventRole {
-    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let (_, msg_id) = interaction.data.custom_id.split_once("__")
             .unwrap();
 
         if interaction.data.custom_id == self.select_id() {
             let users = get_selected_users(interaction);
+            let msg_id = MessageId::new(msg_id.parse()?);
 
-            let mut event = store.load::<Event>(msg_id)?;
+
             let guild = interaction.guild_id.clone().unwrap();
             for user in users {
                 let member = guild.member(&ctx.http, user).await?;
-                event.signup(self.role, Player::new(user, member.nick.unwrap()))
+                store.signup_player(msg_id, self.role, Player::new(user, member.nick.unwrap())).await?;
             }
 
-            let msg_id = MessageId::new(msg_id.parse()?);
+            let event = store.get_event(msg_id).await?;
             let mut original_msg = interaction.channel_id.message(&ctx.http, msg_id).await?;
 
             original_msg.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;

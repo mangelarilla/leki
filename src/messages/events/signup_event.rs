@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Mention};
-use shuttle_persist::PersistInstance;
-use crate::events::{Event, EventKind, EventRole, Player, PlayerClass};
+use crate::events::{EventKind, EventRole, Player, PlayerClass};
 use crate::messages::BotInteractionMessage;
 use crate::prelude::*;
 
@@ -25,7 +24,7 @@ impl SignupEvent {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for SignupEvent {
-    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         if self.class_id() == interaction.data.custom_id {
             let selected_class = get_selected_option(interaction).unwrap();
             let flex_roles = interaction.message.embeds.first().map(|e| e
@@ -33,25 +32,36 @@ impl BotInteractionMessage for SignupEvent {
                 .split(",")
                 .filter_map(|f| EventRole::from_str(f).ok())
                 .collect()).unwrap_or(vec![]);
+            let flex_as_string = flex_roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
 
             let reference = interaction.message.message_reference.clone().unwrap().message_id.unwrap();
-            let mut original_msg = interaction.channel_id.message(&ctx.http, reference).await?;
 
-            let mut event = store.load::<Event>(reference.to_string().as_str())?;
-
-            let dm = event.leader.create_dm_channel(&ctx.http).await?;
-
-            let user = Mention::User(interaction.user.id).to_string();
-            let channel = Mention::Channel(interaction.channel_id).to_string();
-            let flex = flex_roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
-            dm.send_message(&ctx.http, CreateMessage::new()
-                .content(format!("{user} se ha apuntado al evento en {channel} como {}, y flexible a: {}", self.role, flex.join(",")))
-            ).await?;
             let mut player = Player::new(interaction.user.id, interaction.member.clone().unwrap().nick.unwrap());
             player.class = PlayerClass::from_str(&selected_class).ok();
             player.flex = flex_roles;
-            event.signup(self.role, player);
 
+            let event = store.get_event(reference).await?;
+            if let Some(pr) = event.roles.iter().find(|p| p.role == self.role) {
+                if pr.max.is_some_and(|m| m <= pr.players.len()) {
+                    player.flex.push(self.role);
+                    store.signup_player(reference, EventRole::Reserve, player).await?;
+                } else {
+                    store.signup_player(reference, self.role, player).await?;
+                }
+            }
+
+            let event = store.get_event(reference).await?;
+
+            let dm = event.leader.create_dm_channel(&ctx.http).await?;
+            let user = Mention::User(interaction.user.id).to_string();
+            let channel = Mention::Channel(interaction.channel_id).to_string();
+
+            dm.send_message(&ctx.http, CreateMessage::new()
+                .content(format!("{user} se ha apuntado al evento en {channel} como {}, y flexible a: {}", self.role, flex_as_string.join(",")))
+            ).await?;
+
+
+            let mut original_msg = interaction.channel_id.message(&ctx.http, reference).await?;
             original_msg.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
 
 
@@ -72,10 +82,9 @@ impl BotInteractionMessage for SignupEvent {
 
             Ok(CreateInteractionResponse::UpdateMessage(response))
         } else if self.role == EventRole::Absent {
-            let mut event = store.load::<Event>(interaction.message.id.to_string().as_str())?;
             let nick = interaction.member.as_ref().unwrap().nick.as_ref().unwrap();
-            event.signup(self.role, Player::new(interaction.user.id, nick.to_string()));
-            store.save(interaction.message.id.to_string().as_str(), &event)?;
+            store.signup_player(interaction.message.id, self.role, Player::new(interaction.user.id, nick.to_string())).await?;
+            let event = store.get_event(interaction.message.id).await?;
             Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new().embed(event.embed())))
         } else {
             Ok(CreateInteractionResponse::Message(

@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select\n            message_id,\n            role as \"role!: EventRole\"\n        from events.flex_roles\n        where message_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "role!: EventRole",
+        "type_info": {
+          "Custom": {
+            "name": "role",
+            "kind": {
+              "Enum": [
+                "tank",
+                "healer",
+                "brawler",
+                "bomber",
+                "ganker",
+                "dd",
+                "reserve",
+                "absent"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "526905cd1104e18cb54e24a0438be9df749e21542ee02ad3f7e16681f365a9bc"
+}

@@ -13,9 +13,10 @@ pub struct Player {
     pub flex: Vec<EventRole>
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "class", rename_all = "lowercase")]
 pub enum PlayerClass {
-    Arcanist, Necromancer, Warden, DragonKnight, Templar, Sorcerer, NightBlade
+    Arcanist, Necromancer, Warden, #[sqlx(rename = "dragon-knight")]DragonKnight, Templar, Sorcerer, #[sqlx(rename = "night-blade")]NightBlade
 }
 
 impl Player {

@@ -1,5 +1,4 @@
 use serenity::all::{ButtonStyle, CommandInteraction, Context, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage};
-use shuttle_persist::PersistInstance;
 use crate::messages::{BotInteractionMessage};
 use crate::prelude::*;
 
@@ -19,7 +18,7 @@ impl NewEvent {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for NewEvent {
-    async fn command(&self, _interaction: &CommandInteraction, _ctx: &Context, _store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn command(&self, _interaction: &CommandInteraction, _ctx: &Context, _store: &Store) -> Result<CreateInteractionResponse> {
         let response = CreateInteractionResponseMessage::new()
             .ephemeral(true)
             .embed(embeds::basic("Nuevo evento", "Elige tipo de evento"))

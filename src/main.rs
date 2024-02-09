@@ -6,6 +6,7 @@ mod tasks;
 pub mod events;
 mod commands;
 mod messages;
+mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
@@ -15,23 +16,25 @@ use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
-use shuttle_persist::PersistInstance;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
+use sqlx::PgPool;
 use crate::commands::register_commands;
 use crate::tasks::reset_all_reminders;
 use crate::prelude::*;
 
 struct Bot {
     guild: GuildId,
-    store: PersistInstance
+    store: Store
 }
 
 #[shuttle_runtime::main]
 async fn serenity(
     #[shuttle_secrets::Secrets] secret_store: SecretStore,
-    #[shuttle_persist::Persist] persist: PersistInstance
+    #[shuttle_shared_db::Postgres] pool: PgPool
 ) -> shuttle_serenity::ShuttleSerenity {
+    sqlx::migrate!().run(&pool).await.expect("Migrations failed :(");
+
     let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
         token
     } else {
@@ -50,7 +53,7 @@ async fn serenity(
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot { guild, store: persist })
+        .event_handler(Bot { guild, store: Store::new(pool) })
         .await
         .expect("Err creating client");
 
@@ -74,7 +77,7 @@ impl EventHandler for Bot {
 
         register_commands(&ctx, self.guild).await;
 
-        reset_all_reminders(Arc::new(ctx), &ready, Arc::new(self.store.clone())).await;
+        reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {

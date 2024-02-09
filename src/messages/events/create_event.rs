@@ -1,9 +1,9 @@
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
-use chrono::{DateTime, Utc};
+use chrono::{Datelike, DateTime, Timelike, Utc, Weekday};
 use rand::prelude::IteratorRandom;
-use serenity::all::{ChannelId, ComponentInteraction, Context, CreateActionRow, CreateAttachment, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp};
-use shuttle_persist::PersistInstance;
+use serenity::all::{ChannelId, ComponentInteraction, ComponentInteractionData, ComponentInteractionDataKind, Context, CreateActionRow, CreateAttachment, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp};
 use crate::{tasks};
 use crate::events::{Event, EventKind, EventRole, EventScopes};
 use crate::interactions::pipelines::InteractionPipeline;
@@ -30,12 +30,12 @@ impl CreateEvent {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for CreateEvent {
-    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
-        let mut event = store.load::<Event>(interaction.message.id.to_string().as_str())?;
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let (channel, next_date) = get_date_time(&interaction.data).unwrap();
         let guild = interaction.guild_id.unwrap();
 
-        event.datetime = Some(next_date.clone());
+        store.update_datetime(interaction.message.id, next_date.clone()).await?;
+        let event = store.get_event(interaction.message.id).await?;
 
         let mut components = vec![];
         if event.scope != EventScopes::Private {
@@ -57,11 +57,9 @@ impl BotInteractionMessage for CreateEvent {
             .components(components)
         ).await?;
 
-        event.scheduled_event = Some(create_discord_event(guild, ctx, &event, next_date.clone(), channel, msg.id).await?);
+        store.update_id(interaction.message.id, msg.id).await?;
+        store.update_discord_event(msg.id, create_discord_event(guild, ctx, &event, next_date.clone(), channel, msg.id).await?).await?;
         tasks::set_reminder(next_date.clone(), Arc::new(ctx.clone()), channel, msg.id, Arc::new(store.clone()));
-
-        store.save(msg.id.to_string().as_str(), event)?;
-        store.remove(interaction.message.id.to_string().as_str())?;
 
         Ok(CreateInteractionResponse::UpdateMessage(
             CreateInteractionResponseMessage::new()
@@ -133,5 +131,48 @@ fn guess_image(title: &str) -> String {
         "https://esosslfiles-a.akamaihd.net/cms/2020/05/2c2bc79be7a47609fa7b594935f9df6d.jpg".to_string()
     } else {
         "https://esosslfiles-a.akamaihd.net/ape/uploads/2022/09/f96a76373bd8e0521609bf24e88acb03.jpg".to_string()
+    }
+}
+
+fn get_date_time(data: &ComponentInteractionData) -> Option<(ChannelId, DateTime<Utc>)> {
+    if let ComponentInteractionDataKind::StringSelect { values} = &data.kind {
+        let time = values.first().unwrap();
+        let (_, channel_day) = data.custom_id.split_once("__").unwrap();
+        let (channel, day) = channel_day.split_once("_").unwrap();
+        let hour = (&time[..2]).parse::<u32>().unwrap() - 1; // hack for spanish timezone
+        let minute = (&time[3..]).parse::<u32>().unwrap();
+        let dt = calculate_next_date(&day, hour, minute)
+            .with_hour(hour).unwrap()
+            .with_minute(minute).unwrap();
+        let id = ChannelId::from_str(&channel).unwrap();
+        Some((id, dt))
+    } else { None }
+}
+
+fn calculate_next_date(day: &str, hour: u32, minute: u32) -> DateTime<Utc> {
+    let now = Utc::now();
+
+    let now_diff_monday = now.weekday().num_days_from_monday();
+    let target_diff_monday = to_weekday(day).unwrap().num_days_from_monday();
+    let next_target = if target_diff_monday > now_diff_monday {
+        target_diff_monday - now_diff_monday
+    } else if target_diff_monday == now_diff_monday {
+        if now.hour() > hour || (now.hour() == hour && now.minute() > minute) { 7 } else { 0 }
+    } else {
+        target_diff_monday + (7 - now_diff_monday)
+    };
+    now + chrono::Duration::days(next_target.into())
+}
+
+fn to_weekday(day: &str) -> Option<Weekday> {
+    match day {
+        "lunes" => Some(Weekday::Mon),
+        "martes"=> Some(Weekday::Tue),
+        "miercoles" => Some(Weekday::Wed),
+        "jueves" => Some(Weekday::Thu),
+        "viernes" => Some(Weekday::Fri),
+        "sabado" => Some(Weekday::Sat),
+        "domingo" => Some(Weekday::Sun),
+        _ => None
     }
 }

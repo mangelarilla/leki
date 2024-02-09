@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        update events.events\n        set scheduled_event = $1\n        where message_id = $2\n        ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "679f0373c121e0b4a7b71c3bb4cb998785af880db5ce73ceb04d06c8df643e93"
+}

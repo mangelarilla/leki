@@ -11,7 +11,7 @@ pub enum Error {
     #[error(transparent)]
     IO(#[from] std::io::Error),
     #[error(transparent)]
-    Persist(#[from] shuttle_persist::PersistError),
+    Postgres(#[from] sqlx::Error),
     #[error("Role `{0}` is full")]
     RoleFull(String),
     #[error("Interaction not registered `{0}`")]

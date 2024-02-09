@@ -1,5 +1,4 @@
 use serenity::all::{ButtonStyle, CommandInteraction, Context, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, MessageId};
-use shuttle_persist::PersistInstance;
 use strum::IntoEnumIterator;
 use crate::events::{Event, EventRole};
 use crate::interactions::pipelines::InteractionPipeline;
@@ -23,10 +22,10 @@ impl EditEvent {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EditEvent {
-    async fn command(&self, interaction: &CommandInteraction, _ctx: &Context, store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn command(&self, interaction: &CommandInteraction, _ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let message = interaction.data.resolved.messages.values().next().unwrap();
 
-        if let Ok(event) = store.load::<Event>(message.id.to_string().as_str()) {
+        if let Ok(event) = store.get_event(message.id).await {
             Ok(CreateInteractionResponse::Message(edit_event(event, message.id)))
         } else {
             Ok(CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
@@ -43,9 +42,9 @@ pub(super) fn edit_event(event: Event, msg_id: MessageId) -> CreateInteractionRe
         .embed(event.embed())
         .components(vec![
             CreateActionRow::Buttons(event.roles.iter()
-                .filter_map(|(r, _)| if r.is_backup_role() {None} else { Some(edit_button(r, msg_id))}).collect()),
+                .filter_map(|pr| if pr.role.is_backup_role() {None} else { Some(edit_button(&pr.role, msg_id))}).collect()),
             CreateActionRow::Buttons(event.roles.iter()
-                .filter_map(|(r, _)| if !r.is_backup_role() {None} else { Some(edit_button(r, msg_id)
+                .filter_map(|pr| if !pr.role.is_backup_role() {None} else { Some(edit_button(&pr.role, msg_id)
                     .style(ButtonStyle::Secondary))}).collect()),
         ])
 }

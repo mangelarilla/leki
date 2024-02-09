@@ -1,5 +1,4 @@
 use serenity::all::{ComponentInteraction, Context, CreateInteractionResponse, CreateModal};
-use shuttle_persist::PersistInstance;
 use crate::events::EventKind;
 use crate::interactions::pipelines::InteractionPipeline;
 use crate::messages::BotInteractionMessage;
@@ -21,7 +20,7 @@ impl EventInfo {
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EventInfo {
-    async fn component(&self, _interaction: &ComponentInteraction, _ctx: &Context, _store: &PersistInstance) -> Result<CreateInteractionResponse> {
+    async fn component(&self, _interaction: &ComponentInteraction, _ctx: &Context, _store: &Store) -> Result<CreateInteractionResponse> {
         let modal = CreateModal::new(&self.modal_id, "Informacion del Evento")
             .components(vec![
                 components::short_input("Titulo", "event_title", "Trial nivel avanzado - vRG", true),

@@ -2,51 +2,50 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Duration, Utc};
 use lazy_static::lazy_static;
-use serenity::all::{ChannelId, CreateMessage, Mention, MessageId, Ready};
+use regex::Regex;
+use serenity::all::{ChannelId, CreateMessage, GuildId, Mention, MessageId, UserId};
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
-use shuttle_persist::PersistInstance;
 use tokio::task::JoinHandle;
 use tracing::{event, Instrument, instrument, Level, trace_span};
-use crate::events::{Event, EventRole, Player};
+use crate::events::{EventRole, Player};
 use crate::prelude::*;
 
 lazy_static! {
     static ref HASHMAP: Mutex<HashMap<ChannelId, JoinHandle<()>>> = Mutex::new(HashMap::new());
 }
 
-pub(crate) async fn reset_all_reminders(ctx: Arc<Context>, ready: &Ready, store: Arc<PersistInstance>) {
+pub(crate) async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store: Arc<Store>) {
     let span = trace_span!("ready_reminders");
     async move {
-        for guild in &ready.guilds {
-            let events = guild.id.scheduled_events(&ctx.http, false).await.unwrap();
-            for event in events {
-                if event.creator_id.unwrap() == ready.user.id {
-                    let (_, channel_id, message) = parse_event_link(&event.description.unwrap());
-                    let channel_id = ChannelId::new(channel_id);
+        let events = guild.scheduled_events(&ctx.http, false).await.unwrap();
+        for event in events {
+            if event.creator_id.unwrap() == UserId::new(1148032756899643412) {
+                let (_, channel_id, message) = parse_event_link(&event.description.unwrap());
+                let channel_id = ChannelId::new(channel_id);
 
-                    let event = store.load::<Event>(message.to_string().as_str()).unwrap();
+                let message = MessageId::new(message);
+                let event = store.get_event(message).await.unwrap();
 
-                    set_reminder(event.datetime.unwrap(), ctx.clone(), channel_id, MessageId::new(message), store.clone());
-                }
+                set_reminder(event.datetime.unwrap(), ctx.clone(), channel_id, message, store.clone());
             }
         }
     }.instrument(span).await
 }
 
 #[instrument]
-pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, store: Arc<PersistInstance>) {
+pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, store: Arc<Store>) {
     unset_reminder(&channel);
     let handle = tokio::spawn(async move {
         let duration = date - chrono::offset::Utc::now() - Duration::minutes(30);
         event!(Level::TRACE, "{} minutes left", duration.num_minutes());
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;
-            if let Some(event) = store.load::<Event>(message.to_string().as_str()).ok() {
+            if let Some(event) = store.get_event(message).await.ok() {
                 let signed_members: Vec<Player> = event.roles
                     .into_iter()
-                    .filter_map(|(role, (players, _))| if role != EventRole::Reserve && role != EventRole::Absent {
-                        Some(players)
+                    .filter_map(|pr| if pr.role != EventRole::Reserve && pr.role != EventRole::Absent {
+                        Some(pr.players)
                     } else { None })
                     .flatten()
                     .collect();
@@ -73,9 +72,23 @@ pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, 
     HASHMAP.lock().unwrap().insert(channel, handle);
 }
 
-pub fn unset_reminder(channel: &ChannelId) {
+fn unset_reminder(channel: &ChannelId) {
     let task = HASHMAP.lock().unwrap().remove(channel);
     if let Some(task) = task {
         task.abort();
     }
+}
+
+#[instrument]
+pub fn parse_event_link(text: &str) -> (u64, u64, u64) {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"^https:\/\/discord\.com\/channels\/(?P<guild>\d+)\/(?P<channel>\d+)\/(?P<msg>\d+)$").unwrap();
+    }
+
+    RE.captures(text.lines().next().unwrap()).and_then(|cap| Option::from({
+        (cap.name("guild").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
+         cap.name("channel").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap(),
+         cap.name("msg").map(|max| max.as_str().parse::<u64>().unwrap()).unwrap()
+        )
+    })).unwrap()
 }
