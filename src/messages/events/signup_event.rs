@@ -36,7 +36,7 @@ impl BotInteractionMessage for SignupEvent {
 
             let reference = interaction.message.message_reference.clone().unwrap().message_id.unwrap();
 
-            let mut player = Player::new(interaction.user.id, interaction.member.clone().unwrap().nick.unwrap());
+            let mut player = Player::new(interaction.user.id, interaction.member.clone().unwrap().display_name().to_string());
             player.class = PlayerClass::from_str(&selected_class).ok();
             player.flex = flex_roles;
 
@@ -90,7 +90,7 @@ impl BotInteractionMessage for SignupEvent {
             Ok(CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
                     .ephemeral(true)
-                    .components(vec![select_flex_roles(self.class_id(), self.kind.roles()), select_player_class(self.class_id())])
+                    .components(vec![select_flex_roles(self.flex_id(), self.kind.roles()), select_player_class(self.class_id())])
             ))
         }
     }

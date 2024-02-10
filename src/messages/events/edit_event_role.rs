@@ -23,10 +23,10 @@ impl EditEventRole {
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for EditEventRole {
     async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
-        let (_, msg_id) = interaction.data.custom_id.split_once("__")
+        let (custom_id, msg_id) = interaction.data.custom_id.split_once("__")
             .unwrap();
 
-        if interaction.data.custom_id == self.select_id() {
+        if custom_id == self.select_id() {
             let users = get_selected_users(interaction);
             let msg_id = MessageId::new(msg_id.parse()?);
 
@@ -34,7 +34,7 @@ impl BotInteractionMessage for EditEventRole {
             let guild = interaction.guild_id.clone().unwrap();
             for user in users {
                 let member = guild.member(&ctx.http, user).await?;
-                store.signup_player(msg_id, self.role, Player::new(user, member.nick.unwrap())).await?;
+                store.signup_player(msg_id, self.role, Player::new(user, member.display_name().to_string())).await?;
             }
 
             let event = store.get_event(msg_id).await?;

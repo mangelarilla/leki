@@ -25,16 +25,8 @@ impl SelectDate {
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for SelectDate {
     async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, _store: &Store) -> Result<CreateInteractionResponse> {
+        tracing::info!("here");
         let components = if interaction.data.custom_id == self.day_id {
-            let channel_selector = CreateSelectMenuKind::Channel {
-                channel_types: Some(vec![ChannelType::Text]),
-                default_channels: None,
-            };
-
-            vec![CreateActionRow::SelectMenu(
-                    CreateSelectMenu::new(&self.day_id, channel_selector)
-                        .placeholder("Canales del evento"))]
-        } else {
             let channels = get_selected_channels(interaction);
             let channel = channels.first().unwrap();
             let name = channel.name(&ctx.http).await?;
@@ -57,8 +49,16 @@ impl BotInteractionMessage for SelectDate {
                 CreateSelectMenu::new(format!("{}__{}_{}", &self.time_id, channel, day), time_options)
                     .placeholder(format!("Selecciona hora para el {}", day))
             )]
-        };
+        } else {
+            let channel_selector = CreateSelectMenuKind::Channel {
+                channel_types: Some(vec![ChannelType::Text]),
+                default_channels: None,
+            };
 
+            vec![CreateActionRow::SelectMenu(
+                CreateSelectMenu::new(&self.day_id, channel_selector)
+                    .placeholder("Canales del evento"))]
+        };
 
         Ok(CreateInteractionResponse::UpdateMessage(
             CreateInteractionResponseMessage::new().components(components)

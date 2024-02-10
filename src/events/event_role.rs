@@ -6,7 +6,7 @@ use strum::EnumIter;
 use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Serialize, Deserialize, EnumIter, sqlx::Type)]
-#[sqlx(type_name = "role", rename_all = "lowercase")]
+#[sqlx(type_name = "events.role", rename_all = "lowercase")]
 pub enum EventRole {
     Tank, Healer, Brawler, Bomber, Ganker, DD,
     Reserve, Absent

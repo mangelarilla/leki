@@ -31,13 +31,13 @@ pub struct PlayersInRole {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "kind", rename_all = "lowercase")]
+#[sqlx(type_name = "events.kind", rename_all = "lowercase")]
 pub enum EventKind {
     Trial, PvP
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "scope", rename_all = "lowercase")]
+#[sqlx(type_name = "events.scope", rename_all = "lowercase")]
 pub enum EventScopes {
     Public, Private, #[sqlx(rename = "semi-public")] SemiPublic
 }
@@ -52,8 +52,9 @@ impl Event {
             } else {"".to_string()}, true)
             .field(":hourglass_flowing_sand: Duración", self.duration.to_string(), true)
             .field(":crown: Lider", Mention::User(self.leader).to_string(), true)
-            .fields(self.roles.iter()
-                .map(|pr| {
+            .fields(self.kind.roles().iter()
+                .map(|role| {
+                    let pr = self.roles.iter().find(|pr| pr.role == *role).unwrap();
                     let formatted_label = if let Some(max) = pr.max {
                         format!("{} {} ({}/{max})", pr.role.emoji().to_string(), pr.role, pr.players.len())
                     } else {
@@ -124,9 +125,9 @@ fn format_players_embed(players: &Vec<Player>) -> String {
     players.iter()
         .map(|player| {
             if let Some(class) = &player.class {
-                format!("└{} {} {}", class.emoji(), player.name, format_flex(&player.flex))
+                format!("└ {} {} {}", class.emoji(), player.name, format_flex(&player.flex))
             } else {
-                format!("└{} {}", player.name, format_flex(&player.flex))
+                format!("└ {} {}", player.name, format_flex(&player.flex))
             }
         })
         .collect::<Vec<String>>()

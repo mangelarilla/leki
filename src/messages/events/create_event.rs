@@ -19,7 +19,7 @@ impl CreateEvent {
     pub(crate) fn new(kind: EventKind, pipeline: &mut InteractionPipeline) -> Self {
         for role in kind.roles() {
             let handler = SignupEvent::new(role, kind);
-            pipeline.add(role.to_id(), handler.clone());
+            pipeline.add(format!("signup_{}", role.to_id()), handler.clone());
             pipeline.add(handler.class_id(), handler.clone());
             pipeline.add(handler.flex_id(), handler.clone());
         }
@@ -43,13 +43,13 @@ impl BotInteractionMessage for CreateEvent {
                 .into_iter()
                 .filter_map(|r| match r {
                     EventRole::Reserve | EventRole::Absent => None,
-                    _ => Some(r.to_button(r.to_id(), r.to_string()))
+                    _ => Some(r.to_button(format!("signup_{}", r.to_id()), r.to_string()))
                 }).collect()));
         };
 
         components.push(CreateActionRow::Buttons(vec![
-            EventRole::Reserve.to_button(EventRole::Reserve.to_id(), EventRole::Reserve.to_string()),
-            EventRole::Absent.to_button(EventRole::Absent.to_id(), EventRole::Absent.to_string())
+            EventRole::Reserve.to_button(format!("signup_{}", EventRole::Reserve.to_id()), EventRole::Reserve.to_string()),
+            EventRole::Absent.to_button(format!("signup_{}", EventRole::Absent.to_id()), EventRole::Absent.to_string())
         ]));
 
         let msg = channel.send_message(&ctx.http, CreateMessage::new()
@@ -64,7 +64,8 @@ impl BotInteractionMessage for CreateEvent {
         Ok(CreateInteractionResponse::UpdateMessage(
             CreateInteractionResponseMessage::new()
                 .ephemeral(true)
-                .add_embed(CreateEmbed::new().title("Nuevo evento!").description(format!("Evento creado en {}", Mention::Channel(channel).to_string())))
+                .embed(CreateEmbed::new().title("Nuevo evento!").description(format!("Evento creado en {}", Mention::Channel(channel).to_string())))
+                .components(vec![])
         ))
     }
 }

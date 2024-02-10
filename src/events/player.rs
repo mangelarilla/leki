@@ -14,7 +14,7 @@ pub struct Player {
 }
 
 #[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "class", rename_all = "lowercase")]
+#[sqlx(type_name = "events.class", rename_all = "lowercase")]
 pub enum PlayerClass {
     Arcanist, Necromancer, Warden, #[sqlx(rename = "dragon-knight")]DragonKnight, Templar, Sorcerer, #[sqlx(rename = "night-blade")]NightBlade
 }

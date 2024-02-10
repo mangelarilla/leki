@@ -1,7 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use tracing::info;
 use crate::messages::BotInteractionMessage;
-
 
 pub(crate) struct InteractionPipeline {
     messages: HashMap<String, Box<dyn BotInteractionMessage + Sync + Send>>,
@@ -26,5 +26,15 @@ impl InteractionPipeline {
         } else {
             self.messages.get(id)
         }
+    }
+}
+
+impl Display for InteractionPipeline {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let kv: Vec<String> = self.messages.keys()
+            .map(|k| format!("{k}"))
+            .collect();
+
+        write!(f, "\n{}", kv.join("\n"))
     }
 }

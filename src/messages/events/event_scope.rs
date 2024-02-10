@@ -29,6 +29,7 @@ impl EventScope {
 
         for role in kind.roles() {
             pipeline.add(scope.role_scope_id(role), scope.clone());
+            pipeline.add(scope.role_scope_select_id(role), scope.clone());
         }
 
         let day = SelectDate::new(kind, pipeline);
@@ -50,10 +51,17 @@ impl EventScope {
         CreateActionRow::Buttons(self.kind.roles()
             .into_iter()
             .filter_map(|role| match role {
-                EventRole::Absent => None,
+                EventRole::Absent | EventRole::Reserve => None,
                 _ => Some(role.to_button(self.role_scope_id(role), role.to_string()))
             }).collect()
         )
+    }
+
+    fn scope_reserve_button(&self) -> CreateActionRow {
+        let role = EventRole::Reserve;
+        CreateActionRow::Buttons(vec![
+            role.to_button(self.role_scope_id(role), role.to_string())
+        ])
     }
 
     fn scope_buttons(&self) -> CreateActionRow {
@@ -84,10 +92,10 @@ impl BotInteractionMessage for EventScope {
     async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
         let components = if interaction.data.custom_id == self.id_semi_public {
             store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
-            vec![self.scope_role_buttons(), self.scope_confirm()]
+            vec![self.scope_role_buttons(), self.scope_reserve_button(), self.scope_confirm()]
         } else if interaction.data.custom_id == self.id_private {
             store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
-            vec![self.scope_role_buttons(), self.scope_confirm()]
+            vec![self.scope_role_buttons(), self.scope_reserve_button(), self.scope_confirm()]
         } else if let Some(role) = self.kind.roles().into_iter()
             .find(|r| self.role_scope_id(*r) == interaction.data.custom_id) {
             vec![
@@ -103,9 +111,9 @@ impl BotInteractionMessage for EventScope {
             let guild = interaction.guild_id.clone().unwrap();
             for user in get_selected_users(interaction) {
                 let member = guild.member(&ctx.http, user).await?;
-                store.signup_player(interaction.message.id, role, Player::new(user, member.nick.unwrap())).await?;
+                store.signup_player(interaction.message.id, role, Player::new(user, member.display_name().to_string())).await?;
             }
-            vec![self.scope_role_buttons(), self.scope_confirm()]
+            vec![self.scope_role_buttons(), self.scope_reserve_button(), self.scope_confirm()]
         } else {
             vec![self.scope_buttons()]
         };

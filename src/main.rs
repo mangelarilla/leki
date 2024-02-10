@@ -86,14 +86,14 @@ impl EventHandler for Bot {
         }
 
         let pipeline = interactions::define_pipeline();
-        let handler = match &interaction {
-            Interaction::Command(c) => pipeline.get(&c.data.name),
-            Interaction::Component(c) => pipeline.get(&c.data.custom_id),
-            Interaction::Modal(c) => pipeline.get(&c.data.custom_id),
-            _ => None
+        let interaction_name = match &interaction {
+            Interaction::Command(c) => &c.data.name,
+            Interaction::Component(c) => &c.data.custom_id,
+            Interaction::Modal(c) => &c.data.custom_id,
+            _ => ""
         };
 
-        if let Some(handler) = handler {
+        if let Some(handler) = pipeline.get(interaction_name) {
             let response = match &interaction {
                 Interaction::Command(c) => handler.command(c, &ctx, &self.store).await,
                 Interaction::Component(c) => handler.component(c, &ctx, &self.store).await,
@@ -103,7 +103,7 @@ impl EventHandler for Bot {
 
             create_response(&ctx, &interaction, response).await
         } else {
-            error!("Unknown interaction: {interaction:?}");
+            error!("No handler for '{interaction_name}' registered: {pipeline}");
         }
     }
 }
