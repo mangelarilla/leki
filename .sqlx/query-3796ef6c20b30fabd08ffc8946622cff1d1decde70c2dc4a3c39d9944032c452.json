@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select\n            message_id,\n            role as \"role!: EventRole\",\n            user_id, name,\n            class as \"class!: Option<PlayerClass>\"\n        from events.players\n        where message_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "message_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 1,
+        "name": "role!: EventRole",
+        "type_info": {
+          "Custom": {
+            "name": "role",
+            "kind": {
+              "Enum": [
+                "tank",
+                "healer",
+                "brawler",
+                "bomber",
+                "ganker",
+                "dd",
+                "reserve",
+                "absent"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "user_id",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "class!: Option<PlayerClass>",
+        "type_info": {
+          "Custom": {
+            "name": "class",
+            "kind": {
+              "Enum": [
+                "arcanist",
+                "necromancer",
+                "warden",
+                "dragon-knight",
+                "templar",
+                "sorcerer",
+                "night-blade"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "3796ef6c20b30fabd08ffc8946622cff1d1decde70c2dc4a3c39d9944032c452"
+}

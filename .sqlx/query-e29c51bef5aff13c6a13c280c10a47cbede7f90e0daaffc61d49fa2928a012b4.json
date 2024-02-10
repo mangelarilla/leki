@@ -1,0 +1,32 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into events.player_roles(message_id,role,max)\n            values($1,$2,$3)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        {
+          "Custom": {
+            "name": "role",
+            "kind": {
+              "Enum": [
+                "tank",
+                "healer",
+                "brawler",
+                "bomber",
+                "ganker",
+                "dd",
+                "reserve",
+                "absent"
+              ]
+            }
+          }
+        },
+        "Int2"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e29c51bef5aff13c6a13c280c10a47cbede7f90e0daaffc61d49fa2928a012b4"
+}

@@ -1,0 +1,85 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        select\n            title,\n            kind as \"kind!: EventKind\",\n            scope as \"scope!: EventScopes\",\n            description, datetime, duration, leader, scheduled_event\n        from events.events\n        where message_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "title",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!: EventKind",
+        "type_info": {
+          "Custom": {
+            "name": "kind",
+            "kind": {
+              "Enum": [
+                "trial",
+                "pvp"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "scope!: EventScopes",
+        "type_info": {
+          "Custom": {
+            "name": "scope",
+            "kind": {
+              "Enum": [
+                "public",
+                "private",
+                "semi-public"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "datetime",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 5,
+        "name": "duration",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "leader",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "scheduled_event",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "7afffd83ed7d8da1c32e28d61f4230bb8189335586f5eded7d3213d4442dc3ef"
+}

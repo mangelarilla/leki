@@ -1,72 +1,85 @@
-use serenity::all::UserId;
-use super::EventSignedRole;
+use std::fmt::{Display, Formatter};
+use std::str::FromStr;
+use serde::{Deserialize, Serialize};
+use serenity::all::{EmojiId, ReactionType, UserId};
+use super::{EventRole};
+use crate::prelude::*;
 
-#[derive(Clone, Debug, PartialOrd, PartialEq)]
-pub enum Player {
-    Basic(UserId),
-    Class(UserId, String, Vec<EventSignedRole>)
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize)]
+pub struct Player {
+    pub id: UserId,
+    pub name: String,
+    pub class: Option<PlayerClass>,
+    pub flex: Vec<EventRole>
 }
 
-#[derive(Debug, Clone)]
-pub struct PlayersInRole {
-    players: Vec<Player>,
-    max: Option<usize>
+#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "events.class", rename_all = "lowercase")]
+pub enum PlayerClass {
+    Arcanist, Necromancer, Warden, #[sqlx(rename = "dragon-knight")]DragonKnight, Templar, Sorcerer, #[sqlx(rename = "night-blade")]NightBlade
 }
 
-impl PlayersInRole {
-    pub(crate) fn new(players: Vec<Player>, max: Option<usize>) -> Self {
-        PlayersInRole { players, max }
-    }
-    pub(crate) fn is_role_full(&self) -> bool {
-        self.max.is_some_and(|max| max <= self.players.len())
-    }
-
-    pub(super) fn remove_from_role(&mut self, user: UserId) {
-        let index = self.players.iter().position(|player| <Player as Into<UserId>>::into(player.clone()) == user);
-        if let Some(index) = index {
-            self.players.remove(index);
-        }
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.players.len()
-    }
-    pub(crate) fn max(&self) -> Option<usize> {
-        self.max
-    }
-    pub(crate) fn as_slice(&self) -> &[Player] {
-        self.players.as_slice()
-    }
-    pub(crate) fn push(&mut self, player: Player) {
-        self.players.push(player)
+impl Player {
+    pub fn new(id: UserId, name: String) -> Self {
+        Player {id, name, class: None, flex: vec![]}
     }
 }
 
-impl Into<Vec<Player>> for PlayersInRole {
-    fn into(self) -> Vec<Player> {
-        self.players
-    }
-}
-
-impl Into<Vec<UserId>> for PlayersInRole {
-    fn into(self) -> Vec<UserId> {
-        self.players.iter().map(|p| p.clone().into()).collect()
-    }
-}
-
-impl Default for PlayersInRole {
-    fn default() -> Self {
-        PlayersInRole {
-            players: vec![], max: None
-        }
-    }
-}
-
-impl Into<UserId> for Player {
-    fn into(self) -> UserId {
+impl PlayerClass {
+    pub fn label_es(&self) -> String {
         match self {
-            Player::Basic(user) => user,
-            Player::Class(user, _, _) => user
+            PlayerClass::Arcanist => "Arcanista",
+            PlayerClass::Necromancer => "Nigromante",
+            PlayerClass::Warden => "Custodio",
+            PlayerClass::DragonKnight => "Caballero dragon",
+            PlayerClass::Templar => "Templario",
+            PlayerClass::Sorcerer => "Brujo",
+            PlayerClass::NightBlade => "Hoja de la noche",
+        }.to_string()
+    }
+
+    pub fn emoji(&self) -> ReactionType {
+        let (id, label) = match self {
+            PlayerClass::Arcanist => (1154134563392606218, "arcanist"),
+            PlayerClass::Necromancer => (1154088177796137030, "necro"),
+            PlayerClass::Warden => (1154134387546398720, "warden"),
+            PlayerClass::DragonKnight => (1157391862659809280, "dk"),
+            PlayerClass::Templar => (1157391868850618388, "templar"),
+            PlayerClass::Sorcerer => (1157391866971566100, "sorc"),
+            PlayerClass::NightBlade => (1157391864954093608, "nb"),
+        };
+
+        ReactionType::Custom { animated: false, id: EmojiId::new(id), name: Some(label.to_string())}
+    }
+}
+
+impl Display for PlayerClass {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlayerClass::Arcanist => write!(f, "Arcanist"),
+            PlayerClass::Necromancer => write!(f, "Necromancer"),
+            PlayerClass::Warden => write!(f, "Warden"),
+            PlayerClass::DragonKnight => write!(f, "DragonKnight"),
+            PlayerClass::Templar => write!(f, "Templar"),
+            PlayerClass::Sorcerer => write!(f, "Sorcerer"),
+            PlayerClass::NightBlade => write!(f, "NightBlade"),
+        }
+    }
+}
+
+impl FromStr for PlayerClass {
+    type Err = Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s {
+            "Arcanist" => Ok(PlayerClass::Arcanist),
+            "Necromancer" => Ok(PlayerClass::Necromancer),
+            "Warden" => Ok(PlayerClass::Warden),
+            "DragonKnight" => Ok(PlayerClass::DragonKnight),
+            "Templar" => Ok(PlayerClass::Templar),
+            "Sorcerer" => Ok(PlayerClass::Sorcerer),
+            "NightBlade" => Ok(PlayerClass::NightBlade),
+            _ => Err(Error::UnknownClass(s.to_string()))
         }
     }
 }

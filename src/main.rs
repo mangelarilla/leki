@@ -6,6 +6,7 @@ mod tasks;
 pub mod events;
 mod commands;
 mod messages;
+mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
@@ -17,19 +18,23 @@ use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
 use tracing::{error, info};
 use shuttle_secrets::SecretStore;
+use sqlx::PgPool;
 use crate::commands::register_commands;
-use crate::messages::BotMessageKind;
 use crate::tasks::reset_all_reminders;
 use crate::prelude::*;
 
 struct Bot {
-    guild: GuildId
+    guild: GuildId,
+    store: Store
 }
 
 #[shuttle_runtime::main]
 async fn serenity(
-    #[shuttle_secrets::Secrets] secret_store: SecretStore
+    #[shuttle_secrets::Secrets] secret_store: SecretStore,
+    #[shuttle_shared_db::Postgres] pool: PgPool
 ) -> shuttle_serenity::ShuttleSerenity {
+    sqlx::migrate!().run(&pool).await.expect("Migrations failed :(");
+
     let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
         token
     } else {
@@ -48,7 +53,7 @@ async fn serenity(
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot { guild })
+        .event_handler(Bot { guild, store: Store::new(pool) })
         .await
         .expect("Err creating client");
 
@@ -72,7 +77,7 @@ impl EventHandler for Bot {
 
         register_commands(&ctx, self.guild).await;
 
-        reset_all_reminders(Arc::new(ctx), &ready).await;
+        reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -81,61 +86,24 @@ impl EventHandler for Bot {
         }
 
         let pipeline = interactions::define_pipeline();
-        let handler = match &interaction {
-            Interaction::Command(c) => pipeline.get(&c.data.name),
-            Interaction::Component(c) => pipeline.get(&c.data.custom_id),
-            Interaction::Modal(c) => pipeline.get(&c.data.custom_id),
-            _ => None
+        let interaction_name = match &interaction {
+            Interaction::Command(c) => &c.data.name,
+            Interaction::Component(c) => &c.data.custom_id,
+            Interaction::Modal(c) => &c.data.custom_id,
+            _ => ""
         };
 
-        if let Some(handler) = handler {
-            let response = match handler {
-                BotMessageKind::Interaction(i) => i.message(),
-                BotMessageKind::FromModal(m) => {
-                    if let Interaction::Modal(modal) = &interaction {
-                        info!("FromModal interaction: {}", modal.data.custom_id);
-                        m.message(modal)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromMessage(m) => {
-                    if let Interaction::Component(component) = &interaction {
-                        info!("FromMessage interaction: {}", component.data.custom_id);
-                        m.message(component)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromMessageAsync(m) => {
-                    if let Interaction::Component(component) = &interaction {
-                        info!("FromMessageAsync interaction: {}", component.data.custom_id);
-                        let response = m.message(component, &ctx).await;
-                        response
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromCommandAsync(m) => {
-                    if let Interaction::Command(command) = &interaction {
-                        let response = m.message(command, &ctx).await;
-                        response
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
-                BotMessageKind::FromCommand(m) => {
-                    if let Interaction::Command(command) = &interaction {
-                        m.message(command)
-                    } else {
-                        Err(Error::UnknownInteraction(format!("{interaction:?}")))
-                    }
-                }
+        if let Some(handler) = pipeline.get(interaction_name) {
+            let response = match &interaction {
+                Interaction::Command(c) => handler.command(c, &ctx, &self.store).await,
+                Interaction::Component(c) => handler.component(c, &ctx, &self.store).await,
+                Interaction::Modal(m) => handler.modal(m, &ctx, &self.store).await,
+                _ => Err(Error::UnknownInteraction(format!("{interaction:?}")))
             };
 
             create_response(&ctx, &interaction, response).await
         } else {
-            error!("Unknown interaction: {interaction:?}");
+            error!("No handler for '{interaction_name}' registered: {pipeline}");
         }
     }
 }

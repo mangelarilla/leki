@@ -1,54 +1,132 @@
-use std::marker::PhantomData;
-use serenity::all::{ComponentInteraction, CreateInteractionResponse, CreateInteractionResponseMessage};
-use crate::events::components::{select_flex_roles, select_player_class};
-use crate::events::{EventData, EventRole};
-use crate::messages::{BotInteractionFromComponentMessage};
-use crate::messages::events::{SignupEventClass};
+use std::str::FromStr;
+use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Mention};
+use crate::events::{EventKind, EventRole, Player, PlayerClass};
+use crate::messages::BotInteractionMessage;
 use crate::prelude::*;
 
-pub struct SignupEvent<T: EventData + Sync + Send> {
+#[derive(Clone)]
+pub struct SignupEvent {
     role: EventRole,
-    phantom: PhantomData<T>
+    kind: EventKind
 }
 
-impl<T: EventData + Sync + Send> SignupEvent<T> {
-    pub fn new(role: EventRole) -> Self {
-        SignupEvent { role, phantom: PhantomData }
+impl SignupEvent {
+    pub fn new(role: EventRole, kind: EventKind) -> Self {
+        SignupEvent { role, kind }
     }
-
-    pub fn flex_registry(&self) -> (String, SignupEventClass<T>) {
-        (self.flex_id(), SignupEventClass::<T>::new(self.role))
+    pub fn flex_id(&self) -> String {
+        format!("{}_{}_flex", self.kind, self.role.to_id())
     }
-
-    pub fn class_registry(&self) -> (String, SignupEventClass<T>) {
-        (self.class_id(), SignupEventClass::<T>::new(self.role))
-    }
-
-    fn flex_id(&self) -> String {
-        T::prefix_id(format!("{}_flex", self.role.to_id()))
-    }
-
-    fn class_id(&self) -> String {
-        T::prefix_id(format!("{}_class", self.role.to_id()))
+    pub fn class_id(&self) -> String {
+        format!("{}_{}_class", self.kind, self.role.to_id())
     }
 }
 
-impl<T: EventData + Sync + Send> BotInteractionFromComponentMessage for SignupEvent<T>
-    where Error: From<<T as TryFrom<serenity::all::Message>>::Error> {
-    fn message(&self, interaction: &ComponentInteraction) -> Result<CreateInteractionResponse> {
-        if self.role == EventRole::Absent {
-            let mut data = T::try_from(*interaction.message.clone())?;
-            data.add_absent(interaction.user.id);
-            Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new().embed(data.get_embed())))
+#[shuttle_runtime::async_trait]
+impl BotInteractionMessage for SignupEvent {
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
+        if self.class_id() == interaction.data.custom_id {
+            let selected_class = get_selected_option(interaction).unwrap();
+            let flex_roles = interaction.message.embeds.first().map(|e| e
+                .description.clone().unwrap()
+                .split(",")
+                .filter_map(|f| EventRole::from_str(f).ok())
+                .collect()).unwrap_or(vec![]);
+            let flex_as_string = flex_roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
+
+            let reference = interaction.message.message_reference.clone().unwrap().message_id.unwrap();
+
+            let mut player = Player::new(interaction.user.id, interaction.member.clone().unwrap().display_name().to_string());
+            player.class = PlayerClass::from_str(&selected_class).ok();
+            player.flex = flex_roles;
+
+            let event = store.get_event(reference).await?;
+            if let Some(pr) = event.roles.iter().find(|p| p.role == self.role) {
+                if pr.max.is_some_and(|m| m <= pr.players.len()) {
+                    player.flex.push(self.role);
+                    store.signup_player(reference, EventRole::Reserve, player).await?;
+                } else {
+                    store.signup_player(reference, self.role, player).await?;
+                }
+            }
+
+            let event = store.get_event(reference).await?;
+
+            let dm = event.leader.create_dm_channel(&ctx.http).await?;
+            let user = Mention::User(interaction.user.id).to_string();
+            let channel = Mention::Channel(interaction.channel_id).to_string();
+
+            dm.send_message(&ctx.http, CreateMessage::new()
+                .content(format!("{user} se ha apuntado al evento en {channel} como {}, y flexible a: {}", self.role, flex_as_string.join(",")))
+            ).await?;
+
+
+            let mut original_msg = interaction.channel_id.message(&ctx.http, reference).await?;
+            original_msg.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
+
+
+            Ok(CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new()
+                    .embed(CreateEmbed::new().description("Ya estas dentro!"))
+                    .components(vec![])
+            ))
+        } else if self.flex_id() == interaction.data.custom_id {
+            let selected_flex = get_selected_options(interaction);
+
+            let response = if selected_flex.is_empty() {
+                CreateInteractionResponseMessage::new()
+            } else {
+                CreateInteractionResponseMessage::new()
+                    .embed(CreateEmbed::new().title("Roles de reserva").description(selected_flex.join(",")))
+            };
+
+            Ok(CreateInteractionResponse::UpdateMessage(response))
+        } else if self.role == EventRole::Absent {
+            let nick = interaction.member.as_ref().unwrap().nick.as_ref().unwrap();
+            store.signup_player(interaction.message.id, self.role, Player::new(interaction.user.id, nick.to_string())).await?;
+            let event = store.get_event(interaction.message.id).await?;
+            Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new().embed(event.embed())))
         } else {
-            let class_selector = select_player_class(self.class_id());
-            let flex_selector = select_flex_roles(self.flex_id(), &T::roles());
-
             Ok(CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
                     .ephemeral(true)
-                    .components(vec![flex_selector, class_selector])
+                    .components(vec![select_flex_roles(self.flex_id(), self.kind.roles()), select_player_class(self.class_id())])
             ))
         }
     }
+}
+
+pub(crate) fn select_player_class(id: impl Into<String>) -> CreateActionRow {
+    let class_selector = CreateSelectMenuKind::String {
+        options: vec![
+            class_option(PlayerClass::Arcanist),
+            class_option(PlayerClass::Necromancer),
+            class_option(PlayerClass::Warden),
+            class_option(PlayerClass::DragonKnight),
+            class_option(PlayerClass::Templar),
+            class_option(PlayerClass::Sorcerer),
+            class_option(PlayerClass::NightBlade),
+        ]
+    };
+
+    CreateActionRow::SelectMenu(CreateSelectMenu::new(id, class_selector)
+        .placeholder("Selecciona clase"))
+}
+
+fn class_option(player_class: PlayerClass) -> CreateSelectMenuOption {
+    CreateSelectMenuOption::new(player_class.to_string(), player_class.to_string())
+        .description(player_class.label_es())
+        .emoji(player_class.emoji())
+}
+
+pub(crate) fn select_flex_roles(id: impl Into<String>, roles: Vec<EventRole>) -> CreateActionRow {
+    let role_selector = CreateSelectMenuKind::String {
+        options: roles.iter().map(|r|
+            CreateSelectMenuOption::new(r.to_string(), r.to_string())
+        ).collect()
+    };
+
+    CreateActionRow::SelectMenu(CreateSelectMenu::new(id, role_selector)
+        .placeholder("(Opcional) Roles de reserva")
+        .max_values(roles.len() as u8))
 }

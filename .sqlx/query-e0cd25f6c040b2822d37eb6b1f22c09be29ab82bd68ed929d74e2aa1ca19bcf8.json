@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        insert into events.events (title, message_id, kind, scope, description, datetime, duration, leader, scheduled_event)\n        select title, $1, kind, scope, description, datetime, duration, leader, scheduled_event\n        from events.events\n        where message_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0cd25f6c040b2822d37eb6b1f22c09be29ab82bd68ed929d74e2aa1ca19bcf8"
+}

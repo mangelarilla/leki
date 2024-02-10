@@ -4,13 +4,14 @@ version = "1.1.1"
 edition = "2021"
 
 [dependencies]
-shuttle-secrets = "0.37.0"
-shuttle-serenity = "0.37.0"
-shuttle-runtime = "0.37.0"
+shuttle-secrets = "0.38.0"
+shuttle-serenity = "0.38.0"
+shuttle-runtime = "0.38.0"
+shuttle-shared-db = { version = "0.38.0", features = ["postgres", "sqlx", "sqlx-native-tls"] }
 anyhow = "1.0"
 thiserror = "1.0"
 serenity = { version = "0.12.0", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
-tokio = "1.35.1"
+tokio = "1"
 tracing = "0.1.40"
 chrono = "0.4"
 duration-string = { version = "0.3", features = ["serde"] }
@@ -19,4 +20,6 @@ regex = "1.10"
 lazy_static = "1"
 unidecode = "0.3.0"
 rand = "0.8.5"
-async-trait = "0.1.77"
+serde = { version = "1.0", features = ["derive"] }
+strum = { version = "0.26", features = ["derive"] }
+sqlx = { version = "0.7.3", features = ["macros", "bigdecimal", "time"] }

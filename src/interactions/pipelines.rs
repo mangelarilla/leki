@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use log::info;
-use crate::messages::{BotInteractionFromCommandMessage, BotInteractionFromCommandMessageAsync, BotInteractionFromComponentMessage, BotInteractionFromComponentMessageAsync, BotInteractionMessage, BotInteractionModalMessage, BotMessageKind};
-
+use std::fmt::{Display, Formatter};
+use tracing::info;
+use crate::messages::BotInteractionMessage;
 
 pub(crate) struct InteractionPipeline {
-    messages: HashMap<String, BotMessageKind>,
+    messages: HashMap<String, Box<dyn BotInteractionMessage + Sync + Send>>,
 }
 
 impl InteractionPipeline {
@@ -14,42 +14,27 @@ impl InteractionPipeline {
         }
     }
 
-    pub(crate) fn interaction(&mut self, event_id: impl Into<String>, handler: impl BotInteractionMessage + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::Interaction(Box::new(handler)));
+    pub(crate) fn add(&mut self, event_id: impl Into<String>, handler: impl BotInteractionMessage + Sync + Send + 'static) -> &mut Self {
+        self.messages.insert(event_id.into(), Box::new(handler));
         self
     }
 
-    pub(crate) fn modal(&mut self, event_id: impl Into<String>, handler: impl BotInteractionModalMessage + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::FromModal(Box::new(handler)));
-        self
-    }
-
-    pub(crate) fn message(&mut self, event_id: impl Into<String>, handler: impl BotInteractionFromComponentMessage + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::FromMessage(Box::new(handler)));
-        self
-    }
-
-    pub(crate) fn message_async(&mut self, event_id: impl Into<String>, handler: impl BotInteractionFromComponentMessageAsync + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::FromMessageAsync(Box::new(handler)));
-        self
-    }
-
-    pub(crate) fn command_async(&mut self, event_id: impl Into<String>, handler: impl BotInteractionFromCommandMessageAsync + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::FromCommandAsync(Box::new(handler)));
-        self
-    }
-
-    pub(crate) fn command(&mut self, event_id: impl Into<String>, handler: impl BotInteractionFromCommandMessage + 'static) -> &mut Self {
-        self.messages.insert(event_id.into(), BotMessageKind::FromCommand(Box::new(handler)));
-        self
-    }
-
-    pub(crate) fn get(&self, id: &str) -> Option<&BotMessageKind> {
+    pub(crate) fn get(&self, id: &str) -> Option<&Box<dyn BotInteractionMessage + Sync + Send>> {
         info!("Received interaction: {id}");
         if let Some((id, _)) = id.split_once("__") {
             self.messages.get(id)
         } else {
             self.messages.get(id)
         }
+    }
+}
+
+impl Display for InteractionPipeline {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let kv: Vec<String> = self.messages.keys()
+            .map(|k| format!("{k}"))
+            .collect();
+
+        write!(f, "\n{}", kv.join("\n"))
     }
 }

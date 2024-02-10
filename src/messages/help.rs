@@ -1,10 +1,12 @@
-use serenity::all::{CreateEmbed, CreateEmbedAuthor, CreateInteractionResponse, CreateInteractionResponseMessage};
+use serenity::all::{CommandInteraction, Context, CreateEmbed, CreateEmbedAuthor, CreateInteractionResponse, CreateInteractionResponseMessage};
 use crate::messages::BotInteractionMessage;
+use crate::prelude::*;
 
 pub struct Help;
 
+#[shuttle_runtime::async_trait]
 impl BotInteractionMessage for Help {
-    fn message(&self) -> crate::prelude::Result<CreateInteractionResponse> {
+    async fn command(&self, _interaction: &CommandInteraction, _ctx: &Context, _store: &Store) -> Result<CreateInteractionResponse> {
         Ok(CreateInteractionResponse::Message(
             CreateInteractionResponseMessage::new()
                 .embed(CreateEmbed::new()

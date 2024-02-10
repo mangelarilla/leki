@@ -1,66 +1,60 @@
-use std::marker::PhantomData;
-use async_trait::async_trait;
-use log::info;
-use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, GetMessages};
+use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, EditMessage, MessageId};
 use serenity::builder::CreateSelectMenu;
-use crate::events::{EventData, EventRole, Player};
-use crate::messages::{BotInteractionFromComponentMessageAsync, BotInteractionMessage};
-use crate::messages::events::edit_event::{edit_event};
+use crate::events::{EventRole, Player};
+use crate::messages::{BotInteractionMessage};
+use crate::messages::events::edit_event::edit_event;
 use crate::prelude::*;
 
-pub struct EditEventRole<T: EventData + 'static + Sync + Send> {
-    role: EventRole,
-    phantom: PhantomData<T>
+#[derive(Clone)]
+pub struct EditEventRole {
+    role: EventRole
 }
 
-impl<T: EventData + 'static + Sync + Send> EditEventRole<T> {
+impl EditEventRole {
     pub fn new(role: EventRole) -> Self {
-        EditEventRole { role, phantom: PhantomData }
+        EditEventRole { role }
+    }
+
+    pub(super) fn select_id(&self) -> String {
+        format!("edit_role_{}", self.role.to_id())
     }
 }
 
-impl<T: EventData + 'static + Sync + Send> BotInteractionMessage for EditEventRole<T> {
-    fn message(&self) -> Result<CreateInteractionResponse> {
-        let components = vec![
-            CreateActionRow::SelectMenu(CreateSelectMenu::new(
-                T::prefix_id(format!("edit_role_{}", self.role.to_id())),
-                CreateSelectMenuKind::User { default_users: None})
-            )
-        ];
-
-        Ok(CreateInteractionResponse::UpdateMessage(
-            CreateInteractionResponseMessage::new()
-                .components(components)
-        ))
-    }
-}
-
-#[async_trait]
-impl<T: EventData + 'static + Sync + Send> BotInteractionFromComponentMessageAsync for EditEventRole<T>
-    where Error: From<<T as TryFrom<serenity::all::Message>>::Error>{
-    async fn message(&self, interaction: &ComponentInteraction, ctx: &Context) -> Result<CreateInteractionResponse> {
-        let users = get_selected_users(interaction);
-
-        let channel_messages = interaction.channel_id.messages(&ctx.http, GetMessages::new()
-            .limit(5)).await?;
-        let mut original_msg = channel_messages.into_iter()
-            .find(|msg| msg.id != interaction.message.id && msg.pinned && msg.author.id == 1148032756899643412)// Leki id
+#[shuttle_runtime::async_trait]
+impl BotInteractionMessage for EditEventRole {
+    async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
+        let (custom_id, msg_id) = interaction.data.custom_id.split_once("__")
             .unwrap();
 
-        info!("{original_msg:#?}");
-        let mut event = T::try_from(original_msg.clone())?;
-        if self.role == EventRole::Reserve {
+        if custom_id == self.select_id() {
+            let users = get_selected_users(interaction);
+            let msg_id = MessageId::new(msg_id.parse()?);
+
+
+            let guild = interaction.guild_id.clone().unwrap();
             for user in users {
-                event.add_reserve(Player::Basic(user));
+                let member = guild.member(&ctx.http, user).await?;
+                store.signup_player(msg_id, self.role, Player::new(user, member.display_name().to_string())).await?;
             }
-        } else if let EventRole::Signed(s) = self.role {
-            for user in users {
-                event.signup(s, Player::Basic(user));
-            }
+
+            let event = store.get_event(msg_id).await?;
+            let mut original_msg = interaction.channel_id.message(&ctx.http, msg_id).await?;
+
+            original_msg.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
+
+            Ok(CreateInteractionResponse::UpdateMessage(edit_event(event, msg_id)))
+        } else {
+            let components = vec![
+                CreateActionRow::SelectMenu(CreateSelectMenu::new(
+                    format!("{}__{msg_id}", self.select_id()),
+                    CreateSelectMenuKind::User { default_users: None})
+                )
+            ];
+
+            Ok(CreateInteractionResponse::UpdateMessage(
+                CreateInteractionResponseMessage::new()
+                    .components(components)
+            ))
         }
-
-        original_msg.edit(&ctx.http, EditMessage::new().embed(event.get_embed())).await?;
-
-        Ok(CreateInteractionResponse::UpdateMessage(edit_event(event)))
     }
 }
