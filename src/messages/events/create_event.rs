@@ -18,7 +18,7 @@ pub(crate) struct CreateEvent {
 impl CreateEvent {
     pub(crate) fn new(kind: EventKind, pipeline: &mut InteractionPipeline) -> Self {
         for role in kind.roles() {
-            let handler = SignupEvent::new(role, kind);
+            let handler = SignupEvent::new(role);
             pipeline.add(format!("signup_{}", role.to_id()), handler.clone());
             pipeline.add(handler.class_id(), handler.clone());
             pipeline.add(handler.flex_id(), handler.clone());

@@ -1,31 +1,30 @@
 use std::str::FromStr;
 use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Mention};
-use crate::events::{EventKind, EventRole, Player, PlayerClass};
+use crate::events::{EventRole, Player, PlayerClass};
 use crate::messages::BotInteractionMessage;
 use crate::prelude::*;
 
 #[derive(Clone)]
 pub struct SignupEvent {
-    role: EventRole,
-    kind: EventKind
+    role: EventRole
 }
 
 impl SignupEvent {
-    pub fn new(role: EventRole, kind: EventKind) -> Self {
-        SignupEvent { role, kind }
+    pub fn new(role: EventRole) -> Self {
+        SignupEvent { role }
     }
     pub fn flex_id(&self) -> String {
-        format!("{}_{}_flex", self.kind, self.role.to_id())
+        format!("{}_flex", self.role.to_id())
     }
     pub fn class_id(&self) -> String {
-        format!("{}_{}_class", self.kind, self.role.to_id())
+        format!("{}_class", self.role.to_id())
     }
 }
 
 #[shuttle_runtime::async_trait]
 impl BotInteractionMessage for SignupEvent {
     async fn component(&self, interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<CreateInteractionResponse> {
-        if self.class_id() == interaction.data.custom_id {
+        if interaction.data.custom_id.ends_with(&self.class_id()) {
             let selected_class = get_selected_option(interaction).unwrap();
             let flex_roles = interaction.message.embeds.first().map(|e| e
                 .description.clone().unwrap()
@@ -70,7 +69,7 @@ impl BotInteractionMessage for SignupEvent {
                     .embed(CreateEmbed::new().description("Ya estas dentro!"))
                     .components(vec![])
             ))
-        } else if self.flex_id() == interaction.data.custom_id {
+        } else if interaction.data.custom_id.ends_with(&self.flex_id()) {
             let selected_flex = get_selected_options(interaction);
 
             let response = if selected_flex.is_empty() {
@@ -87,10 +86,11 @@ impl BotInteractionMessage for SignupEvent {
             let event = store.get_event(interaction.message.id).await?;
             Ok(CreateInteractionResponse::UpdateMessage(CreateInteractionResponseMessage::new().embed(event.embed())))
         } else {
+            let event = store.get_event(interaction.message.id).await?;
             Ok(CreateInteractionResponse::Message(
                 CreateInteractionResponseMessage::new()
                     .ephemeral(true)
-                    .components(vec![select_flex_roles(self.flex_id(), self.kind.roles()), select_player_class(self.class_id())])
+                    .components(vec![select_flex_roles(self.flex_id(), event.kind.roles()), select_player_class(self.class_id())])
             ))
         }
     }
