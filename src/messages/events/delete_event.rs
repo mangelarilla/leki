@@ -40,7 +40,7 @@ impl BotInteractionMessage for DeleteEvent {
                     "Si si, ahora lo *borro*, espabilao",
                     "Ya te gustaria a ti",
                     "Le hemos dado fuerte al vinate eh?",
-                    "Vas mas perdido que mi creador en Cyro",
+                    "Vas mas perdido que mi creador en cyro",
                     "A la proxima, me chivo y te mandan a portales",
                     "Pues sabes que te digo? Lo vas a borrar tú -_-",
                     "estas bien? quieres hablar?",
