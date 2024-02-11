@@ -41,7 +41,10 @@ impl BotInteractionMessage for DeleteEvent {
                     "Ya te gustaria a ti",
                     "Le hemos dado fuerte al vinate eh?",
                     "Vas mas perdido que mi creador en Cyro",
-                    "A la proxima, me chivo y te mandan a portales"
+                    "A la proxima, me chivo y te mandan a portales",
+                    "Pues sabes que te digo? Lo vas a borrar tú -_-",
+                    "estas bien? quieres hablar?",
+                    "Que qué ocurre??? tú sabrás..."
                 ].choose(&mut rand::thread_rng()).unwrap().to_string())
                 .ephemeral(true)
             ))
