@@ -32,7 +32,6 @@ impl Store {
 
         let player_roles = sqlx::query_as!(DbPlayerRole, r#"
         select
-            message_id,
             role as "role!: EventRole",
             max
         from events.player_roles
@@ -251,7 +250,6 @@ struct DbEvent {
 }
 
 struct DbPlayerRole {
-    message_id: i64,
     role: EventRole,
     max: Option<i16>
 }

@@ -25,7 +25,7 @@ impl EventScope {
         };
 
         pipeline.add(&scope.id_semi_public, scope.clone());
-        pipeline.add(&scope.id_semi_public, scope.clone());
+        pipeline.add(&scope.id_private, scope.clone());
 
         for role in kind.roles() {
             pipeline.add(scope.role_scope_id(role), scope.clone());
@@ -94,7 +94,7 @@ impl BotInteractionMessage for EventScope {
             store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
             vec![self.scope_role_buttons(), self.scope_reserve_button(), self.scope_confirm()]
         } else if interaction.data.custom_id == self.id_private {
-            store.update_scope(interaction.message.id, EventScopes::SemiPublic).await?;
+            store.update_scope(interaction.message.id, EventScopes::Private).await?;
             vec![self.scope_role_buttons(), self.scope_reserve_button(), self.scope_confirm()]
         } else if let Some(role) = self.kind.roles().into_iter()
             .find(|r| self.role_scope_id(*r) == interaction.data.custom_id) {
