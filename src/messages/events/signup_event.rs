@@ -1,5 +1,6 @@
 use std::str::FromStr;
-use serenity::all::{ComponentInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Mention};
+use serenity::all::{ChannelId, ComponentInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Member, Mention, RoleId};
+use tracing::{info, instrument};
 use crate::events::{EventRole, Player, PlayerClass};
 use crate::messages::BotInteractionMessage;
 use crate::prelude::*;
@@ -19,6 +20,17 @@ impl SignupEvent {
     pub fn class_id(&self) -> String {
         format!("{}_class", self.role.to_id())
     }
+}
+
+#[instrument]
+fn signup_msg(member: Member) -> CreateEmbed {
+    // Role Escudero
+    let tax = if member.roles.contains(&RoleId::new(592733654996746253)) {"3"} else {"10"};
+    info!("Member {} signed in with roles: {:?}", member.display_name(), member.roles);
+    CreateEmbed::new()
+        .title("Ya estas dentro!")
+        .description(format!("Recuerda que __si no eres reserva__ y faltas de manera __injustificada__ deberas ingresar {tax}k al banco como penalización tal y como indican las {}",
+        Mention::Channel(ChannelId::new(1004447678689714197)).to_string())) // #normas
 }
 
 #[shuttle_runtime::async_trait]
@@ -66,7 +78,7 @@ impl BotInteractionMessage for SignupEvent {
 
             Ok(CreateInteractionResponse::UpdateMessage(
                 CreateInteractionResponseMessage::new()
-                    .embed(CreateEmbed::new().description("Ya estas dentro!"))
+                    .embed(signup_msg(interaction.member.clone().unwrap()))
                     .components(vec![])
             ))
         } else if interaction.data.custom_id.ends_with(&self.flex_id()) {
