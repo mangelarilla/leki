@@ -95,7 +95,7 @@ impl BotInteractionMessage for EventComposition {
         let mut components = if let Some(role) = self.kind.roles().into_iter()
             .find(|r| self.role_comp_id(*r) == interaction.data.custom_id) {
             let kind = CreateSelectMenuKind::String {
-                options: (1..12)
+                options: (0..12)
                     .map(|n| CreateSelectMenuOption::new(n.to_string(), n.to_string()))
                     .collect()
             };
