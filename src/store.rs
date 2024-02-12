@@ -41,7 +41,6 @@ impl Store {
 
         let players = sqlx::query_as!(DbPlayer, r#"
         select
-            message_id,
             role as "role!: EventRole",
             user_id, name,
             class as "class!: Option<PlayerClass>"
@@ -51,7 +50,7 @@ impl Store {
 
         let flex_roles: Vec<DbFlexRole> = sqlx::query_as!(DbFlexRole, r#"
         select
-            message_id,
+            user_id,
             role as "role!: EventRole"
         from events.flex_roles
         where message_id = $1"#, message_id.get() as i64)
@@ -59,13 +58,12 @@ impl Store {
 
         event.roles = player_roles.into_iter()
             .map(|pr| {
-                let msg = pr.message_id;
                 let mut pr: PlayersInRole = pr.into();
                 pr.players = players.iter()
-                    .filter_map(|p| if p.message_id == msg && p.role == pr.role {
+                    .filter_map(|p| if p.role == pr.role {
                         let mut player: Player = p.into();
                         player.flex = flex_roles.iter()
-                            .filter_map(|f| if f.message_id == msg && p.user_id as u64 == player.id.get() {
+                            .filter_map(|f| if f.user_id as u64 == player.id.get() {
                                 Some(f.role)
                             } else { None })
                             .collect();
@@ -259,7 +257,6 @@ struct DbPlayerRole {
 }
 
 struct DbPlayer {
-    message_id: i64,
     role: EventRole,
     user_id: i64,
     name: String,
@@ -267,8 +264,8 @@ struct DbPlayer {
 }
 
 struct DbFlexRole {
-    message_id: i64,
-    role: EventRole
+    role: EventRole,
+    user_id: i64
 }
 
 impl Into<Event> for DbEvent {

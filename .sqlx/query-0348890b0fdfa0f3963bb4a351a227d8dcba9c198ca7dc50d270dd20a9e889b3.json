@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select\n            message_id,\n            role as \"role!: EventRole\"\n        from events.flex_roles\n        where message_id = $1",
+  "query": "\n        select\n            user_id,\n            role as \"role!: EventRole\"\n        from events.flex_roles\n        where message_id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "message_id",
+        "name": "user_id",
         "type_info": "Int8"
       },
       {
@@ -40,5 +40,5 @@
       false
     ]
   },
-  "hash": "526905cd1104e18cb54e24a0438be9df749e21542ee02ad3f7e16681f365a9bc"
+  "hash": "0348890b0fdfa0f3963bb4a351a227d8dcba9c198ca7dc50d270dd20a9e889b3"
 }
