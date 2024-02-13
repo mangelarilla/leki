@@ -102,8 +102,10 @@ impl EventHandler for Bot {
             };
 
             create_response(&ctx, &interaction, response).await
-        } else {
-            error!("No handler for '{interaction_name}' registered: {pipeline}");
+        }
+
+        if interaction_name == "Edit event" {
+            messages::events::edit_event(interaction.as_command().unwrap(), &ctx, &self.store).await.unwrap();
         }
     }
 }

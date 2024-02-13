@@ -3,7 +3,6 @@ pub mod pipelines;
 use crate::events::{EventKind};
 use crate::interactions::pipelines::InteractionPipeline;
 use crate::messages::events::{DeleteEvent, EventInfo, NewEvent};
-use crate::messages::events::edit_event::EditEvent;
 
 const NEW_TRIAL: &'static str = "new_trial";
 const NEW_PVP: &'static str = "new_pvp";
@@ -18,8 +17,6 @@ pub(crate) fn define_pipeline() -> InteractionPipeline {
     pipeline.add(NEW_PVP, new_pvp);
 
     pipeline.add("Delete event", DeleteEvent::new());
-    let edit_event = EditEvent::new(&mut pipeline);
-    pipeline.add("Edit event", edit_event);
 
     pipeline
 }

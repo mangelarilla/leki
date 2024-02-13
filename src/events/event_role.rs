@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serenity::all::{ButtonStyle, CreateButton, EmojiId, ReactionType};
-use strum::EnumIter;
+use strum::{EnumIter, IntoEnumIterator};
 use crate::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Hash, Serialize, Deserialize, EnumIter, sqlx::Type)]
@@ -38,6 +38,12 @@ impl EventRole {
 
     pub fn to_id(&self) -> String {
         self.to_string().to_lowercase()
+    }
+
+    pub fn from_partial_id(value: impl Into<String>) -> Option<Self> {
+        let value = value.into().to_lowercase();
+        Self::iter()
+            .find(|r| value.contains(&r.to_id()))
     }
 
     pub fn is_backup_role(&self) -> bool {

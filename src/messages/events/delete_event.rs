@@ -1,4 +1,3 @@
-use rand::prelude::SliceRandom;
 use serenity::all::{ChannelId, CommandInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, Message, MessageType};
 use crate::messages::BotInteractionMessage;
 use crate::prelude::*;
@@ -32,22 +31,7 @@ impl BotInteractionMessage for DeleteEvent {
                 .content("Purgado!")
             ))
         } else {
-            Ok(CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()
-                .content(vec![
-                    "Eso no es un evento atontao!",
-                    "Ponte las gafas que esto no es un evento",
-                    "Madre mia estas cuajao",
-                    "Si si, ahora lo *borro*, espabilao",
-                    "Ya te gustaria a ti",
-                    "Le hemos dado fuerte al vinate eh?",
-                    "Vas mas perdido que mi creador en cyro",
-                    "A la proxima, me chivo y te mandan a portales",
-                    "Pues sabes que te digo? Lo vas a borrar tú -_-",
-                    "estas bien? quieres hablar?",
-                    "Que qué ocurre??? tú sabrás..."
-                ].choose(&mut rand::thread_rng()).unwrap().to_string())
-                .ephemeral(true)
-            ))
+            Ok(super::not_an_event_response())
         }
     }
 }
