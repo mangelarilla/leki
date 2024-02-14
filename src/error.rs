@@ -22,4 +22,6 @@ pub enum Error {
     UnknownClass(String),
     #[error("Parse event error")]
     ParseEvent,
+    #[error("Interaction Timeout")]
+    Timeout,
 }

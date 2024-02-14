@@ -135,6 +135,54 @@ impl Store {
     }
 
     #[instrument]
+    pub async fn update_leader(&self, message_id: MessageId, leader: UserId) -> Result<()> {
+        info!("update leader to {leader} for {}", message_id.get());
+        sqlx::query!(r#"
+        update events.events
+        set leader = $1
+        where message_id = $2
+        "#, leader.get() as i64, message_id.get() as i64)
+            .execute(&self.pool).await?;
+        Ok(())
+    }
+
+    #[instrument]
+    pub async fn update_title(&self, message_id: MessageId, title: String) -> Result<()> {
+        info!("update title to {title} for {}", message_id.get());
+        sqlx::query!(r#"
+        update events.events
+        set title = $1
+        where message_id = $2
+        "#, title, message_id.get() as i64)
+            .execute(&self.pool).await?;
+        Ok(())
+    }
+
+    #[instrument]
+    pub async fn update_description(&self, message_id: MessageId, description: String) -> Result<()> {
+        info!("update description to {description} for {}", message_id.get());
+        sqlx::query!(r#"
+        update events.events
+        set description = $1
+        where message_id = $2
+        "#, description, message_id.get() as i64)
+            .execute(&self.pool).await?;
+        Ok(())
+    }
+
+    #[instrument]
+    pub async fn update_duration(&self, message_id: MessageId, duration: DurationString) -> Result<()> {
+        info!("update duration to {duration} for {}", message_id.get());
+        sqlx::query!(r#"
+        update events.events
+        set duration = $1
+        where message_id = $2
+        "#, duration.to_string(), message_id.get() as i64)
+            .execute(&self.pool).await?;
+        Ok(())
+    }
+
+    #[instrument]
     pub async fn update_role_max(&self, message_id: MessageId, role: EventRole, max: usize) -> Result<()> {
         info!("update role {role} max to {max} for {}", message_id.get());
         sqlx::query!(r#"
