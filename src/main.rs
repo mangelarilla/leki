@@ -105,7 +105,9 @@ impl EventHandler for Bot {
         }
 
         if interaction_name == "Edit event" {
-            messages::events::edit_event(interaction.as_command().unwrap(), &ctx, &self.store).await.unwrap();
+            if let Err(why) = messages::events::edit_event(interaction.as_command().unwrap(), &ctx, &self.store).await {
+                error!("Edit event: {why:#?}");
+            }
         }
     }
 }
