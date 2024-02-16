@@ -12,6 +12,8 @@ pub enum Error {
     IO(#[from] std::io::Error),
     #[error(transparent)]
     Postgres(#[from] sqlx::Error),
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
     #[error("Role `{0}` is full")]
     RoleFull(String),
     #[error("Interaction not registered `{0}`")]
@@ -20,8 +22,10 @@ pub enum Error {
     UnknownRole(String),
     #[error("PlayerClass not registered `{0}`")]
     UnknownClass(String),
-    #[error("Parse event error")]
-    ParseEvent,
+    #[error("Parse event error: `{0}`")]
+    ParseEvent(String),
     #[error("Interaction Timeout")]
     Timeout,
+    #[error("Not a day channel: `{0}`")]
+    NotDay(String),
 }

@@ -1,7 +1,9 @@
 use std::fmt::{Display, Formatter};
+use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
-use serenity::all::{Colour, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, ScheduledEventId, Timestamp, UserId};
+use rand::prelude::IteratorRandom;
+use serenity::all::{Colour, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, ScheduledEventId, Timestamp, UserId};
 
 pub(crate) mod event_role;
 pub(crate) mod player;
@@ -10,7 +12,7 @@ pub(crate) use event_role::*;
 pub(crate) use player::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Event {
     pub title: String,
     pub kind: EventKind,
@@ -23,7 +25,7 @@ pub struct Event {
     pub scheduled_event: Option<ScheduledEventId>
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct PlayersInRole {
     pub role: EventRole,
     pub players: Vec<Player>,
@@ -43,6 +45,54 @@ pub enum EventScopes {
 }
 
 impl Event {
+    pub fn new(title: String, duration: DurationString, description: String, leader: UserId, kind: EventKind) -> Self {
+        Event {
+            title, description, duration, leader, kind,
+            scope: EventScopes::Public,
+            datetime: None,
+            scheduled_event: None,
+            roles: kind.roles()
+                .into_iter()
+                .map(|role| PlayersInRole {role, players: vec![], max: kind.default_role_max(role) })
+                .collect()
+        }
+    }
+
+    pub fn set_max(&mut self, role: EventRole, max: Option<usize>) {
+        for pr in self.roles.iter_mut() {
+            if pr.role == role {
+                pr.max = max;
+            }
+        }
+    }
+
+    pub fn add_player(&mut self, role: EventRole, player: Player) -> EventRole {
+        let mut add_to_reserve = false;
+        for pr in self.roles.iter_mut() {
+            if let Some(position) = pr.players.iter().position(|p| p.id == player.id) {
+                pr.players.remove(position);
+            }
+
+            if pr.role == role {
+                if pr.max.is_some_and(|max| max <= pr.players.len()) {
+                    add_to_reserve = true;
+                } else {
+                    pr.players.push(player.clone());
+                }
+            }
+        }
+
+        // prevent recursive mut borrow
+        if add_to_reserve {
+            let mut player = player.clone();
+            player.flex.push(role);
+            self.add_player(EventRole::Reserve, player);
+            EventRole::Reserve
+        } else {
+            role
+        }
+    }
+
     pub fn embed(&self) -> CreateEmbed {
         CreateEmbed::new()
             .title(&self.title)
@@ -77,6 +127,12 @@ impl Event {
         self.embed()
             .author(CreateEmbedAuthor::new("Previsualizacion"))
     }
+
+    pub(crate) async fn image(&self) -> crate::prelude::Result<CreateAttachment> {
+        let attachment = CreateAttachment::path(random_image(&self.title, self.kind)?).await?;
+
+        Ok(attachment)
+    }
 }
 
 impl EventKind {
@@ -98,6 +154,28 @@ impl EventKind {
                 }
             }
             EventKind::PvP => None
+        }
+    }
+
+    pub fn from_partial_id(id: &str) -> Option<Self> {
+        if id.contains("trial") {
+            Some(EventKind::Trial)
+        } else if id.contains("pvp") {
+            Some(EventKind::PvP)
+        } else {
+            None
+        }
+    }
+}
+
+impl EventScopes {
+    pub fn from_partial_id(id: &str) -> Self {
+        if id.contains("semi_public") {
+            EventScopes::SemiPublic
+        } else if id.contains("private") {
+            EventScopes::Private
+        } else {
+            EventScopes::Public
         }
     }
 }
@@ -140,5 +218,53 @@ fn format_flex(roles: &Vec<EventRole>) -> String {
     } else {
         let role_strings = roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
         format!("(Flex: {})", role_strings.join(","))
+    }
+}
+
+fn random_image(title: &str, kind: EventKind) -> crate::prelude::Result<PathBuf> {
+    let mut path = PathBuf::from("assets");
+    path.push(kind.to_string());
+
+    let image = if kind == EventKind::PvP {
+        path.read_dir()?
+            .filter_map(|f| f.ok())
+            .choose(&mut rand::thread_rng())
+            .unwrap()
+    } else {
+        path.read_dir()?
+            .filter_map(|f| f.ok())
+            .find(|t| t.file_name().to_string_lossy() == guess_image(&title))
+            .unwrap()
+    };
+
+    Ok(image.path())
+}
+
+fn guess_image(title: &str) -> String {
+    let title = unidecode::unidecode(&title);
+    if title.contains("AA") || title.contains("Aetherian") || title.contains("Aeterico") {
+        "aa.jpg".to_string()
+    } else if title.contains("AS") || title.contains("Asylum") || title.contains("Amparo") {
+        "as.jpg".to_string()
+    } else if title.contains("HRC") || title.contains("Hel Ra") || title.contains("Hel-Ra") {
+        "hrc.jpg".to_string()
+    } else if title.contains("SO") || title.contains("Ophidia") || title.contains("Sanctum") {
+        "so.png".to_string()
+    } else if title.contains("DSR") || title.contains("Dreadsail") || title.contains("Arrecife") {
+        "dsr.jpg".to_string()
+    } else if title.contains("SS") || title.contains("Sunspire") || title.contains("Sol") {
+        "ss.jpg".to_string()
+    } else if title.contains("MoL") || title.contains("Maw") || title.contains("Lorkhaj") {
+        "mol.jpg".to_string()
+    } else if title.contains("CR") || title.contains("Cloudrest") || title.contains("Nubelia") {
+        "cr.jpg".to_string()
+    } else if title.contains("SE") || title.contains("Sanity") || title.contains("Locura") {
+        "se.jpg".to_string()
+    } else if title.contains("HoF") || title.contains("Fabrication") || title.contains("Fabricacion") {
+        "hof.jpg".to_string()
+    } else if title.contains("KA") || title.contains("Kyne") || title.contains("Egida") {
+        "ka.png".to_string()
+    } else {
+        "generic.jpg".to_string()
     }
 }

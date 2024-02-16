@@ -13,15 +13,15 @@ pub struct Player {
     pub flex: Vec<EventRole>
 }
 
-#[derive(Clone, Debug, PartialOrd, PartialEq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "events.class", rename_all = "lowercase")]
 pub enum PlayerClass {
     Arcanist, Necromancer, Warden, #[sqlx(rename = "dragon-knight")]DragonKnight, Templar, Sorcerer, #[sqlx(rename = "night-blade")]NightBlade
 }
 
 impl Player {
-    pub fn new(id: UserId, name: String) -> Self {
-        Player {id, name, class: None, flex: vec![]}
+    pub fn new(id: UserId, name: impl Into<String>) -> Self {
+        Player {id, name: name.into(), class: None, flex: vec![]}
     }
 }
 

@@ -1,5 +1,4 @@
 pub mod components;
-pub mod embeds;
 
 use serenity::all::ActionRowComponent::InputText;
 use serenity::all::{ActionRow, ChannelId, ComponentInteraction, ComponentInteractionDataKind, UserId};
@@ -18,7 +17,7 @@ pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String
 
 pub fn get_selected_option(interaction: &ComponentInteraction) -> Option<String> {
     if let ComponentInteractionDataKind::StringSelect {values} = &interaction.data.kind {
-        Some(values.first().unwrap().to_string())
+        values.first().map(|s| s.to_string())
     } else { None }
 }
 
@@ -34,8 +33,8 @@ pub fn get_selected_users(interaction: &ComponentInteraction) -> Vec<UserId> {
     } else { vec![] }
 }
 
-pub fn get_selected_channels(interaction: &ComponentInteraction) -> Vec<ChannelId> {
+pub fn get_selected_channel(interaction: &ComponentInteraction) -> Option<ChannelId> {
     if let ComponentInteractionDataKind::ChannelSelect {values} = &interaction.data.kind {
-        values.clone()
-    } else { vec![] }
+        values.first().map(|c| *c)
+    } else { None }
 }

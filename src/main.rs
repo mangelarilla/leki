@@ -1,4 +1,3 @@
-mod interactions;
 mod error;
 mod prelude;
 mod utils;
@@ -10,7 +9,6 @@ mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
-use serenity::all::{CreateInteractionResponse};
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
@@ -85,47 +83,37 @@ impl EventHandler for Bot {
             return;
         }
 
-        let pipeline = interactions::define_pipeline();
-        let interaction_name = match &interaction {
-            Interaction::Command(c) => &c.data.name,
-            Interaction::Component(c) => &c.data.custom_id,
-            Interaction::Modal(c) => &c.data.custom_id,
-            _ => ""
-        };
+        match interaction {
+            Interaction::Command(command) => {
+                info!("Command interaction: {}", command.data.name);
+                if command.data.name == "events" {
+                    if let Err(why) = messages::events::create_event(&command, &ctx, &self.store).await {
+                        error!("Create event: {why:#?}");
+                    }
+                }
 
-        if let Some(handler) = pipeline.get(interaction_name) {
-            let response = match &interaction {
-                Interaction::Command(c) => handler.command(c, &ctx, &self.store).await,
-                Interaction::Component(c) => handler.component(c, &ctx, &self.store).await,
-                Interaction::Modal(m) => handler.modal(m, &ctx, &self.store).await,
-                _ => Err(Error::UnknownInteraction(format!("{interaction:?}")))
-            };
+                if command.data.name == "Edit event" {
+                    if let Err(why) = messages::events::edit_event(&command, &ctx, &self.store).await {
+                        error!("Edit event: {why:#?}");
+                    }
+                }
 
-            create_response(&ctx, &interaction, response).await
-        }
-
-        if interaction_name == "Edit event" {
-            if let Err(why) = messages::events::edit_event(interaction.as_command().unwrap(), &ctx, &self.store).await {
-                error!("Edit event: {why:#?}");
+                if command.data.name == "Delete event" {
+                    if let Err(why) = messages::events::delete_event(&command, &ctx, &self.store).await {
+                        error!("Edit event: {why:#?}");
+                    }
+                }
             }
-        }
-    }
-}
-
-async fn create_response(ctx: &Context, interaction: &Interaction, response: Result<CreateInteractionResponse>) {
-    match response {
-        Ok(response) => {
-            let create_response = match interaction {
-                Interaction::Command(i) => i.create_response(&ctx.http, response).await,
-                Interaction::Component(i) => i.create_response(&ctx.http, response).await,
-                Interaction::Modal(i) => i.create_response(&ctx.http, response).await,
-                _ => Ok(())
-            };
-
-            if let Err(why) = create_response {
-                error!("{why:?}")
+            Interaction::Component(component) => {
+                info!("Component interaction: {}", component.data.custom_id);
+                if component.data.custom_id.starts_with("signup") {
+                    if let Err(why) = messages::events::signup_event(&component, &ctx, &self.store).await {
+                        error!("Signup event: {why:#?}");
+                    }
+                }
             }
+            Interaction::Modal(m) => {info!("Modal interaction: {}", m.data.custom_id)}
+            _ => {}
         }
-        Err(why) => error!("{why:?}")
     }
 }

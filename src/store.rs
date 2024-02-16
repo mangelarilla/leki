@@ -78,46 +78,34 @@ impl Store {
     }
 
     #[instrument]
-    pub async fn create_event(&self, message_id: MessageId, title: String, description: String, duration: DurationString, kind: EventKind, leader: UserId) -> Result<Event> {
+    pub async fn create_event(&self, message_id: MessageId, event: &Event) -> Result<()> {
         info!("create event {}", message_id.get());
         sqlx::query!(r#"
-        insert into events.events(message_id,kind,scope,title,description,duration,leader)
-        values($1,$2,$3,$4,$5,$6,$7)
-        "#, message_id.get() as i64, kind as EventKind, EventScopes::Public as EventScopes, title, description, duration.to_string(), leader.get() as i64)
+        insert into events.events(message_id,kind,scope,title,description,duration,leader,datetime,scheduled_event)
+        values($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        "#, message_id.get() as i64,
+            event.kind as EventKind,
+            event.scope as EventScopes,
+            event.title,
+            event.description,
+            event.duration.to_string(),
+            event.leader.get() as i64,
+            event.datetime.map(|dt| OffsetDateTime::from_unix_timestamp(dt.timestamp()).ok()).flatten(),
+            event.scheduled_event.map(|e| e.get() as i64))
             .execute(&self.pool).await?;
 
-        for role in kind.roles() {
+        for pr in &event.roles {
             sqlx::query!(r#"
             insert into events.player_roles(message_id,role,max)
             values($1,$2,$3)
-            "#, message_id.get() as i64, role as EventRole, kind.default_role_max(role).map(|m| m as i16))
+            "#, message_id.get() as i64, pr.role as EventRole, pr.max.map(|m| m as i16))
                 .execute(&self.pool).await?;
+
+            for player in &pr.players {
+                self.signup_player(message_id, pr.role, &player).await?;
+            }
         }
 
-        self.get_event(message_id).await
-    }
-
-    #[instrument]
-    pub async fn update_discord_event(&self, message_id: MessageId, event_id: ScheduledEventId) -> Result<()> {
-        info!("update discord event to {} for {}", event_id.get(), message_id.get());
-        sqlx::query!(r#"
-        update events.events
-        set scheduled_event = $1
-        where message_id = $2
-        "#, event_id.get() as i64, message_id.get() as i64)
-            .execute(&self.pool).await?;
-        Ok(())
-    }
-
-    #[instrument]
-    pub async fn update_scope(&self, message_id: MessageId, scope: EventScopes) -> Result<()> {
-        info!("update scope to {scope} for {}", message_id.get());
-        sqlx::query!(r#"
-        update events.events
-        set scope = $1
-        where message_id = $2
-        "#, scope as EventScopes, message_id.get() as i64)
-            .execute(&self.pool).await?;
         Ok(())
     }
 
@@ -183,19 +171,7 @@ impl Store {
     }
 
     #[instrument]
-    pub async fn update_role_max(&self, message_id: MessageId, role: EventRole, max: usize) -> Result<()> {
-        info!("update role {role} max to {max} for {}", message_id.get());
-        sqlx::query!(r#"
-        update events.player_roles
-        set max = $1
-        where message_id = $2 and role = $3
-        "#, max as i16, message_id.get() as i64, role as EventRole)
-            .execute(&self.pool).await?;
-        Ok(())
-    }
-
-    #[instrument]
-    pub async fn signup_player(&self, message_id: MessageId, role: EventRole, player: Player) -> Result<()> {
+    pub async fn signup_player(&self, message_id: MessageId, role: EventRole, player: &Player) -> Result<()> {
         info!("Delete players for {}", message_id.get());
         sqlx::query!(r#"
             delete from events.players
@@ -203,12 +179,12 @@ impl Store {
             "#, message_id.get() as i64, player.id.get() as i64)
             .execute(&self.pool).await?;
 
-        if let Some(class) = player.class {
+        if let Some(class) = &player.class {
             info!("insert playersn in {role} with class {class} for {}", message_id.get());
             sqlx::query!(r#"
             insert into events.players(message_id,role,user_id,name,class)
             values($1,$2,$3,$4,$5)
-            "#, message_id.get() as i64, role as EventRole, player.id.get() as i64, player.name, class as PlayerClass)
+            "#, message_id.get() as i64, role as EventRole, player.id.get() as i64, player.name, *class as PlayerClass)
                 .execute(&self.pool).await?;
         } else {
             info!("insert players in {role} for {}", message_id.get());
@@ -225,12 +201,12 @@ impl Store {
             where message_id = $1 and user_id = $2
             "#, message_id.get() as i64, player.id.get() as i64)
             .execute(&self.pool).await?;
-        for role in player.flex {
+        for role in &player.flex {
             info!("insert flex {role} for {} in {}", player.name, message_id.get());
             sqlx::query!(r#"
             insert into events.flex_roles(message_id,role,user_id)
             values($1,$2,$3)
-            "#, message_id.get() as i64, role as EventRole, player.id.get() as i64)
+            "#, message_id.get() as i64, *role as EventRole, player.id.get() as i64)
                 .execute(&self.pool).await?;
         }
 
@@ -246,43 +222,6 @@ impl Store {
             "#, message_id.get() as i64)
             .execute(&self.pool).await?;
         Ok(())
-    }
-
-    #[instrument]
-    pub async fn update_id(&self, old_message_id: MessageId, new_message_id: MessageId) -> Result<()> {
-        info!("Insert new event {} from old {}", new_message_id.get(), old_message_id.get());
-        sqlx::query!(r#"
-        insert into events.events (title, message_id, kind, scope, description, datetime, duration, leader, scheduled_event)
-        select title, $1, kind, scope, description, datetime, duration, leader, scheduled_event
-        from events.events
-        where message_id = $2"#, new_message_id.get() as i64, old_message_id.get() as i64)
-            .execute(&self.pool).await?;
-
-        info!("Insert new player_roles {} from old {}", new_message_id.get(), old_message_id.get());
-        sqlx::query!(r#"
-        insert into events.player_roles (message_id, role, max)
-        select $1, role, max
-        from events.player_roles
-        where message_id = $2"#, new_message_id.get() as i64, old_message_id.get() as i64)
-            .execute(&self.pool).await?;
-
-        info!("Insert new players {} from old {}", new_message_id.get(), old_message_id.get());
-        sqlx::query!(r#"
-        insert into events.players (message_id, role, user_id, name, class)
-        select $1, role, user_id, name, class
-        from events.players
-        where message_id = $2"#, new_message_id.get() as i64, old_message_id.get() as i64)
-            .execute(&self.pool).await?;
-
-        info!("Insert new flex_roles {} from old {}", new_message_id.get(), old_message_id.get());
-        sqlx::query!(r#"
-        insert into events.flex_roles (message_id, role, user_id)
-        select $1, role, user_id
-        from events.flex_roles
-        where message_id = $2"#, new_message_id.get() as i64, old_message_id.get() as i64)
-            .execute(&self.pool).await?;
-
-        self.remove_event(old_message_id).await
     }
 }
 

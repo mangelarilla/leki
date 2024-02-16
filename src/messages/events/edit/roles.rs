@@ -21,7 +21,7 @@ pub(super) async fn edit_role(interaction: &ComponentInteraction, ctx: &Context,
         let guild = interaction.guild_id.clone().unwrap();
         for user in users {
             let member = guild.member(&ctx.http, user).await?;
-            store.signup_player(msg_id, role, Player::new(user, member.display_name().to_string())).await?;
+            store.signup_player(msg_id, role, &Player::new(user, member.display_name().to_string())).await?;
         }
         Ok(interaction)
     } else {

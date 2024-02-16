@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        insert into events.events(message_id,kind,scope,title,description,duration,leader)\n        values($1,$2,$3,$4,$5,$6,$7)\n        ",
+  "query": "\n        insert into events.events(message_id,kind,scope,title,description,duration,leader,datetime,scheduled_event)\n        values($1,$2,$3,$4,$5,$6,$7,$8,$9)\n        ",
   "describe": {
     "columns": [],
     "parameters": {
@@ -32,10 +32,12 @@
         "Varchar",
         "Varchar",
         "Varchar",
+        "Int8",
+        "Timestamptz",
         "Int8"
       ]
     },
     "nullable": []
   },
-  "hash": "918424aec2e22c718430899201b6f19f35df66a254da7477b1410cb03eda0d4b"
+  "hash": "50bb10654b4c1dab617b8156db080d9e1caf1c145e21be6752eacc0e740aae69"
 }
