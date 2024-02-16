@@ -122,6 +122,9 @@ impl Event {
             .timestamp(Timestamp::now())
             .footer(CreateEmbedFooter::new("Ultima modificacion"))
             .color(Colour::from_rgb(0, 255, 0))
+            .image(format!("https://github.com/mangelarilla/leki/blob/main/assets/{}/{}?raw=true",
+                           self.kind,
+                           random_image(&self.title, self.kind).unwrap().file_name().unwrap().to_string_lossy()))
     }
     pub fn embed_preview(&self) -> CreateEmbed {
         self.embed()
