@@ -117,6 +117,7 @@ fn signup_msg(member: &Member) -> CreateInteractionResponseMessage {
 
 
     CreateInteractionResponseMessage::new()
+        .ephemeral(true)
         .embed(CreateEmbed::new()
             .title("Ya estas dentro!")
             .description(format!("Recuerda que __si no eres reserva__ y faltas de manera __injustificada__ deberas ingresar {tax}k al banco como penalización tal y como indican las {}",
