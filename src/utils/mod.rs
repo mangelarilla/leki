@@ -1,7 +1,7 @@
 pub mod components;
 
 use serenity::all::ActionRowComponent::InputText;
-use serenity::all::{ActionRow, ChannelId, ComponentInteraction, ComponentInteractionDataKind, UserId};
+use serenity::all::{ActionRow, ChannelId, ComponentInteraction, ComponentInteractionDataKind, RoleId, UserId};
 
 pub fn get_input_value(components: &Vec<ActionRow>, idx: usize) -> Option<String> {
     let input_text = components.get(idx)
@@ -35,6 +35,12 @@ pub fn get_selected_users(interaction: &ComponentInteraction) -> Vec<UserId> {
 
 pub fn get_selected_channel(interaction: &ComponentInteraction) -> Option<ChannelId> {
     if let ComponentInteractionDataKind::ChannelSelect {values} = &interaction.data.kind {
+        values.first().map(|c| *c)
+    } else { None }
+}
+
+pub fn get_selected_role(interaction: &ComponentInteraction) -> Option<RoleId> {
+    if let ComponentInteractionDataKind::RoleSelect {values} = &interaction.data.kind {
         values.first().map(|c| *c)
     } else { None }
 }

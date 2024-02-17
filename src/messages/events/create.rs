@@ -3,6 +3,7 @@ mod info;
 mod kind;
 mod scope;
 mod date;
+mod role;
 
 use std::sync::Arc;
 use serenity::all::{ChannelId, CommandInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp};
@@ -20,6 +21,9 @@ pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store
     // Event composition
     let interaction = composition::handle_composition(&message, &modal, ctx, &mut event).await?;
 
+    // Event notification role
+    let interaction = role::select_role(&message, &interaction, ctx, &mut event).await?;
+
     // Event scope
     let interaction = scope::handle_scope(&message, &interaction, ctx, &mut event).await?;
 
@@ -29,6 +33,7 @@ pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store
     // Create event
     let image = event.image().await?;
     let event_message = event_channel.send_message(&ctx.http, CreateMessage::new()
+        .content(event.notification_role.map(|r| Mention::Role(r).to_string()).unwrap_or("".to_string()))
         .embed(event.embed().attachment(image.filename))
         .components(signup_buttons(&event))
     ).await?;

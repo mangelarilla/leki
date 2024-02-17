@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
 use rand::prelude::IteratorRandom;
-use serenity::all::{Colour, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, ScheduledEventId, Timestamp, UserId};
+use serenity::all::{Colour, CreateAttachment, CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, Mention, RoleId, ScheduledEventId, Timestamp, UserId};
 
 pub(crate) mod event_role;
 pub(crate) mod player;
@@ -22,7 +22,8 @@ pub struct Event {
     pub duration: DurationString,
     pub leader: UserId,
     pub roles: Vec<PlayersInRole>,
-    pub scheduled_event: Option<ScheduledEventId>
+    pub scheduled_event: Option<ScheduledEventId>,
+    pub notification_role: Option<RoleId>
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -51,6 +52,7 @@ impl Event {
             scope: EventScopes::Public,
             datetime: None,
             scheduled_event: None,
+            notification_role: None,
             roles: kind.roles()
                 .into_iter()
                 .map(|role| PlayersInRole {role, players: vec![], max: kind.default_role_max(role) })

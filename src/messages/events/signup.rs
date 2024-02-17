@@ -1,10 +1,17 @@
 use std::str::FromStr;
-use serenity::all::{ChannelId, ComponentInteraction, Context, CreateEmbed, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Member, Mention, RoleId};
+use serenity::all::{ChannelId, ComponentInteraction, Context, CreateEmbed, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Member, Mention, RoleId, UserId};
 use serenity::builder::CreateInteractionResponse;
 use crate::events::{EventKind, EventRole, Player, PlayerClass};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
 use tracing::{info, instrument};
+
+fn has_bypass_roles(member: &Member) -> bool {
+    member.roles.contains(&RoleId::new(1042554035951112332)) || // stormdrum
+        member.roles.contains(&RoleId::new(592740760533860353)) || // jarl
+        member.roles.contains(&RoleId::new(994310996141285408)) || // heraldo
+        member.roles.contains(&RoleId::new(592742335037833246)) // guild master
+}
 
 pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<()> {
     if let Some(role) = EventRole::from_partial_id(&interaction.data.custom_id) {
@@ -13,11 +20,19 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
         let member = interaction.member.clone().unwrap();
         let mut player = Player::new(interaction.user.id, member.display_name());
 
+        let dm = event.leader.create_dm_channel(&ctx.http).await?;
+        let user = Mention::User(interaction.user.id).to_string();
+        let channel = Mention::Channel(interaction.channel_id).to_string();
+
         if role == EventRole::Absent {
             store.signup_player(original_message.id, EventRole::Absent, &player).await?;
             event.add_player(EventRole::Absent, player);
             original_message.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
-            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member))).await?;
+            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member, None, event.leader))).await?;
+
+            dm.send_message(&ctx.http, CreateMessage::new()
+                .content(format!("{user} no va a poder asistir al evento en {channel}"))
+            ).await?;
         } else {
 
             // Select flex roles and class
@@ -25,10 +40,6 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
             let mut selects = interaction.get_response(&ctx.http).await?
                 .await_component_interaction(&ctx.shard)
                 .stream();
-
-            let dm = event.leader.create_dm_channel(&ctx.http).await?;
-            let user = Mention::User(interaction.user.id).to_string();
-            let channel = Mention::Channel(interaction.channel_id).to_string();
 
             while let Some(interaction) = selects.next().await {
                 if interaction.data.custom_id.ends_with("flex") {
@@ -42,14 +53,26 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                         .filter_map(|f| EventRole::from_str(f).ok())
                         .collect()).unwrap_or(vec![]);
                     let flex_as_string = player.flex.iter().map(|r| r.to_string()).collect::<Vec<String>>();
-                    let role = event.add_player(role, player.clone());
-                    store.signup_player(original_message.id, role, &player).await?;
-                    original_message.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
-                    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(signup_msg(&member))).await?;
 
-                    dm.send_message(&ctx.http, CreateMessage::new()
-                        .content(format!("{user} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
-                    ).await?;
+                    if !has_bypass_roles(&member) && event.notification_role.is_some_and(|r| !member.roles.contains(&r)) {
+                        player.flex.push(role);
+                        event.add_player(EventRole::Reserve, player.clone());
+                        store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
+
+                        dm.send_message(&ctx.http, CreateMessage::new()
+                            .content(format!("{user} no cumple los requisitos de titular y se ha movido a reserva en el evento de {channel}, flexible a: {}", flex_as_string.join(",")))
+                        ).await?;
+                    } else {
+                        let role = event.add_player(role, player.clone());
+                        store.signup_player(original_message.id, role, &player).await?;
+
+                        dm.send_message(&ctx.http, CreateMessage::new()
+                            .content(format!("{user} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
+                        ).await?;
+                    }
+
+                    original_message.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
+                    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(signup_msg(&member, event.notification_role, event.leader))).await?;
                 }
             }
         }
@@ -110,17 +133,30 @@ fn update_flex_roles(flex_roles: Vec<String>) -> CreateInteractionResponse {
 }
 
 #[instrument]
-fn signup_msg(member: &Member) -> CreateInteractionResponseMessage {
+fn signup_msg(member: &Member, notification_role: Option<RoleId>, leader: UserId) -> CreateInteractionResponseMessage {
     // Role Escudero
     let tax = if member.roles.contains(&RoleId::new(592733654996746253)) {"3"} else {"10"};
     info!("Member {} signed in with roles: {:?}", member.display_name(), member.roles);
 
+    let rules_channel = Mention::Channel(ChannelId::new(1004447678689714197)).to_string();
+    let frac = format!("Recuerda que __si no eres reserva__ y faltas de manera __injustificada__ deberas ingresar {tax}k al banco como penalización tal y como indican las {rules_channel}");
+    let embed = if !has_bypass_roles(&member) && notification_role.is_some_and(|r| !member.roles.contains(&r)) {
+        let notification_role = Mention::Role(notification_role.unwrap()).to_string();
+        CreateEmbed::new()
+            .title("Apuntado como reserva")
+            .description(format!(r#"
+Para apuntarte como titular deberas formar parte de {notification_role}, consulta los requisitos de rosters de la norma **1.5** en {rules_channel}
+Si crees que cumples los requisitos o quieres mas informacion consultar con el lider del evento {}
+
+{frac}"#, Mention::User(leader)))
+    } else {
+        CreateEmbed::new()
+            .title("Ya estas dentro!")
+            .description(frac)
+    };
 
     CreateInteractionResponseMessage::new()
         .ephemeral(true)
-        .embed(CreateEmbed::new()
-            .title("Ya estas dentro!")
-            .description(format!("Recuerda que __si no eres reserva__ y faltas de manera __injustificada__ deberas ingresar {tax}k al banco como penalización tal y como indican las {}",
-                                 Mention::Channel(ChannelId::new(1004447678689714197)).to_string()))) // #normas
+        .embed(embed) // #normas
         .components(vec![])
 }

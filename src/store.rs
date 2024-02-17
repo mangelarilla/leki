@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use duration_string::DurationString;
 use serenity::all::{MessageId, ScheduledEventId, UserId};
+use serenity::model::id::RoleId;
 use sqlx::PgPool;
 use sqlx::types::time::OffsetDateTime;
 use tracing::{info, instrument};
@@ -25,7 +26,7 @@ impl Store {
             title,
             kind as "kind!: EventKind",
             scope as "scope!: EventScopes",
-            description, datetime, duration, leader, scheduled_event
+            description, datetime, duration, leader, scheduled_event, notification_role
         from events.events
         where message_id = $1"#, message_id.get() as i64)
             .fetch_one(&self.pool).await?.into();
@@ -81,8 +82,8 @@ impl Store {
     pub async fn create_event(&self, message_id: MessageId, event: &Event) -> Result<()> {
         info!("create event {}", message_id.get());
         sqlx::query!(r#"
-        insert into events.events(message_id,kind,scope,title,description,duration,leader,datetime,scheduled_event)
-        values($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        insert into events.events(message_id,kind,scope,title,description,duration,leader,datetime,scheduled_event,notification_role)
+        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
         "#, message_id.get() as i64,
             event.kind as EventKind,
             event.scope as EventScopes,
@@ -91,7 +92,8 @@ impl Store {
             event.duration.to_string(),
             event.leader.get() as i64,
             event.datetime.map(|dt| OffsetDateTime::from_unix_timestamp(dt.timestamp()).ok()).flatten(),
-            event.scheduled_event.map(|e| e.get() as i64))
+            event.scheduled_event.map(|e| e.get() as i64),
+            event.notification_role.map(|e| e.get() as i64))
             .execute(&self.pool).await?;
 
         for pr in &event.roles {
@@ -233,7 +235,8 @@ struct DbEvent {
     datetime: Option<OffsetDateTime>,
     duration: String,
     leader: i64,
-    scheduled_event: Option<i64>
+    scheduled_event: Option<i64>,
+    notification_role: Option<i64>
 }
 
 struct DbPlayerRole {
@@ -264,7 +267,8 @@ impl Into<Event> for DbEvent {
             leader: UserId::new(self.leader as u64),
             roles: vec![],
             duration: DurationString::from_string(self.duration).unwrap(),
-            scheduled_event: self.scheduled_event.map(|s| ScheduledEventId::new(s as u64))
+            scheduled_event: self.scheduled_event.map(|s| ScheduledEventId::new(s as u64)),
+            notification_role: self.notification_role.map(|s| RoleId::new(s as u64)),
         }
     }
 }

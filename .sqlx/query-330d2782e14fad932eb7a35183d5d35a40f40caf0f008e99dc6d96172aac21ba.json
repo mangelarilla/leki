@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        select\n            title,\n            kind as \"kind!: EventKind\",\n            scope as \"scope!: EventScopes\",\n            description, datetime, duration, leader, scheduled_event\n        from events.events\n        where message_id = $1",
+  "query": "\n        select\n            title,\n            kind as \"kind!: EventKind\",\n            scope as \"scope!: EventScopes\",\n            description, datetime, duration, leader, scheduled_event, notification_role\n        from events.events\n        where message_id = $1",
   "describe": {
     "columns": [
       {
@@ -63,6 +63,11 @@
         "ordinal": 7,
         "name": "scheduled_event",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "notification_role",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -78,8 +83,9 @@
       true,
       false,
       false,
+      true,
       true
     ]
   },
-  "hash": "7afffd83ed7d8da1c32e28d61f4230bb8189335586f5eded7d3213d4442dc3ef"
+  "hash": "330d2782e14fad932eb7a35183d5d35a40f40caf0f008e99dc6d96172aac21ba"
 }
