@@ -6,13 +6,6 @@ use crate::prelude::*;
 use serenity::futures::StreamExt;
 use tracing::{info, instrument};
 
-fn has_bypass_roles(member: &Member) -> bool {
-    member.roles.contains(&RoleId::new(1042554035951112332)) || // stormdrum
-        member.roles.contains(&RoleId::new(592740760533860353)) || // jarl
-        member.roles.contains(&RoleId::new(994310996141285408)) || // heraldo
-        member.roles.contains(&RoleId::new(592742335037833246)) // guild master
-}
-
 pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<()> {
     if let Some(role) = EventRole::from_partial_id(&interaction.data.custom_id) {
         let mut original_message = interaction.message.clone();
@@ -54,7 +47,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                         .collect()).unwrap_or(vec![]);
                     let flex_as_string = player.flex.iter().map(|r| r.to_string()).collect::<Vec<String>>();
 
-                    if !has_bypass_roles(&member) && event.notification_role.is_some_and(|r| !member.roles.contains(&r)) {
+                    if event.notification_role.is_some_and(|r| !member.roles.contains(&r)) {
                         player.flex.push(role);
                         event.add_player(EventRole::Reserve, player.clone());
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
@@ -140,7 +133,7 @@ fn signup_msg(member: &Member, notification_role: Option<RoleId>, leader: UserId
 
     let rules_channel = Mention::Channel(ChannelId::new(1004447678689714197)).to_string();
     let frac = format!("Recuerda que __si no eres reserva__ y faltas de manera __injustificada__ deberas ingresar {tax}k al banco como penalización tal y como indican las {rules_channel}");
-    let embed = if !has_bypass_roles(&member) && notification_role.is_some_and(|r| !member.roles.contains(&r)) {
+    let embed = if notification_role.is_some_and(|r| !member.roles.contains(&r)) {
         let notification_role = Mention::Role(notification_role.unwrap()).to_string();
         CreateEmbed::new()
             .title("Apuntado como reserva")
