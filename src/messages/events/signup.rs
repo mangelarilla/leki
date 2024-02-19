@@ -149,6 +149,7 @@ Si crees que cumples los requisitos o quieres mas informacion consultar con el l
     };
 
     CreateInteractionResponseMessage::new()
+        .content(Mention::User(member.user.id).to_string())
         .ephemeral(true)
         .embed(embed) // #normas
         .components(vec![])
