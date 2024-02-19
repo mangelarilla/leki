@@ -138,7 +138,7 @@ fn signup_msg(member: &Member, notification_role: Option<RoleId>, leader: UserId
         CreateEmbed::new()
             .title("Apuntado como reserva")
             .description(format!(r#"
-Para apuntarte como titular deberas formar parte de {notification_role}, consulta los requisitos de rosters de la norma **1.5** en {rules_channel}
+__**Para poder apuntarte como titular deberas formar parte de {notification_role}**__, consulta los requisitos de rosters de la norma **1.5** en {rules_channel}
 Si crees que cumples los requisitos o quieres mas informacion consultar con el lider del evento {}
 
 {frac}"#, Mention::User(leader)))
