@@ -68,6 +68,12 @@ impl Event {
         }
     }
 
+    pub fn clear(&mut self) {
+        for pr in self.roles.iter_mut() {
+            pr.players.clear();
+        }
+    }
+
     pub fn add_player(&mut self, role: EventRole, player: Player) -> EventRole {
         let mut add_to_reserve = false;
         for pr in self.roles.iter_mut() {

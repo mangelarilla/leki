@@ -30,6 +30,7 @@ pub(super) async fn handle_scope(message: &Message, interaction: &ComponentInter
 
                         // Get nicknames and signup players
                         let guild = interaction.guild_id.clone().unwrap();
+                        event.clear();
                         for user in get_selected_users(&interaction) {
                             let member = guild.member(&ctx.http, user).await?;
                             event.add_player(role, Player::new(user, member.display_name().to_string()));

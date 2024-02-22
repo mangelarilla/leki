@@ -57,8 +57,8 @@ fn edit_event_message(event: &Event) -> CreateInteractionResponseMessage {
     CreateInteractionResponseMessage::new()
         .ephemeral(true)
         .components(vec![
-            CreateActionRow::Buttons(event.roles.iter()
-                .filter_map(|pr| if pr.role.is_backup_role() {None} else { Some(edit_event_button(&pr.role))}).collect()),
+            // CreateActionRow::Buttons(event.roles.iter()
+            //     .filter_map(|pr| if pr.role.is_backup_role() {None} else { Some(edit_event_button(&pr.role))}).collect()),
             CreateActionRow::Buttons(event.roles.iter()
                 .filter_map(|pr| if !pr.role.is_backup_role() {None} else { Some(edit_event_button(&pr.role)
                     .style(ButtonStyle::Secondary))}).collect()),
