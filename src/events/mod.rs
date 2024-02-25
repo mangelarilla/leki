@@ -68,9 +68,11 @@ impl Event {
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, role: EventRole) {
         for pr in self.roles.iter_mut() {
-            pr.players.clear();
+            if pr.role == role {
+                pr.players.clear();
+            }
         }
     }
 
