@@ -25,7 +25,12 @@ pub async fn register_commands(ctx: &Context, guild: GuildId) {
 async fn register_command(ctx: &Context, guild: GuildId, builder: CreateCommand) {
     let command = guild.create_command(&ctx.http, builder).await;
     match command {
-        Ok(command) => info!("Command '{}' registered", &command.name),
+        Ok(command) => {
+            if command.name == "help" {
+                guild.delete_command(&ctx.http, command.id).await.unwrap();
+            }
+            info!("Command '{}' registered", &command.name)
+        },
         Err(error) => error!("Error registering command: {}",  error)
     }
 }
