@@ -21,7 +21,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
             store.signup_player(original_message.id, EventRole::Absent, &player).await?;
             event.add_player(EventRole::Absent, player);
             original_message.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
-            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member, None, event.leader))).await?;
+            interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member, None, event.leader, event.kind))).await?;
 
             dm.send_message(&ctx.http, CreateMessage::new()
                 .content(format!("{user} no va a poder asistir al evento en {channel}"))
@@ -47,7 +47,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                         .collect()).unwrap_or(vec![]);
                     let flex_as_string = player.flex.iter().map(|r| r.to_string()).collect::<Vec<String>>();
 
-                    if event.notification_role.is_some_and(|r| !member.roles.contains(&r)) {
+                    if event.notification_role.is_some_and(|r| !member.roles.contains(&r)) || (event.notification_role.is_none() && initiation_check(&member, event.kind)) {
                         player.flex.push(role);
                         event.add_player(EventRole::Reserve, player.clone());
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
@@ -65,7 +65,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                     }
 
                     original_message.edit(&ctx.http, EditMessage::new().embed(event.embed())).await?;
-                    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(signup_msg(&member, event.notification_role, event.leader))).await?;
+                    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(signup_msg(&member, event.notification_role, event.leader, event.kind))).await?;
                 }
             }
         }
@@ -126,7 +126,7 @@ fn update_flex_roles(flex_roles: Vec<String>) -> CreateInteractionResponse {
 }
 
 #[instrument]
-fn signup_msg(member: &Member, notification_role: Option<RoleId>, leader: UserId) -> CreateInteractionResponseMessage {
+fn signup_msg(member: &Member, notification_role: Option<RoleId>, leader: UserId, event_kind: EventKind) -> CreateInteractionResponseMessage {
     // Role Escudero
     let tax = if member.roles.contains(&RoleId::new(592733654996746253)) {"3"} else {"10"};
     info!("Member {} signed in with roles: {:?}", member.display_name(), member.roles);
@@ -142,6 +142,10 @@ __**Para poder apuntarte como titular deberas formar parte de {notification_role
 Si crees que cumples los requisitos o quieres mas informacion consultar con el lider del evento {}
 
 {frac}"#, Mention::User(leader)))
+    } else if notification_role.is_none() && initiation_check(member, event_kind) {
+        CreateEmbed::new()
+            .title("Apuntado como reserva porque no eres de iniciacion")
+            .description("Al ser titular de un roster intermedio o avanzado no puedes apuntarte como titular a un evento de iniciacion")
     } else {
         CreateEmbed::new()
             .title("Ya estas dentro!")
@@ -153,4 +157,11 @@ Si crees que cumples los requisitos o quieres mas informacion consultar con el l
         .ephemeral(true)
         .embed(embed) // #normas
         .components(vec![])
+}
+
+fn initiation_check(member: &Member, event_kind: EventKind) -> bool {
+    match event_kind {
+        EventKind::Trial => member.roles.contains(&RoleId::new(1201977765579202590)) || member.roles.contains(&RoleId::new(1201977671979122698)),
+        EventKind::PvP => member.roles.contains(&RoleId::new(1201977190791512095))
+    }
 }
