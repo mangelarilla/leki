@@ -47,7 +47,9 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                         .collect()).unwrap_or(vec![]);
                     let flex_as_string = player.flex.iter().map(|r| r.to_string()).collect::<Vec<String>>();
 
-                    if event.notification_role.is_some_and(|r| !member.roles.contains(&r)) || (event.notification_role.is_none() && initiation_check(&member, event.kind)) {
+                    if event.leader != interaction.user.id &&
+                        (event.notification_role.is_some_and(|r| !member.roles.contains(&r)) ||
+                            (event.notification_role.is_none() && initiation_check(&member, event.kind))) {
                         player.flex.push(role);
                         event.add_player(EventRole::Reserve, player.clone());
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
