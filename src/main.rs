@@ -117,8 +117,4 @@ impl EventHandler for Bot {
             _ => {}
         }
     }
-
-    async fn guild_scheduled_event_user_add(&self, _ctx: Context, _subscribed: GuildScheduledEventUserAddEvent) {
-        todo!("DM with subscription options when triggered")
-    }
 }
