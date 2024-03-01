@@ -9,6 +9,7 @@ mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
+use serenity::all::GuildScheduledEventUserAddEvent;
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
@@ -115,5 +116,9 @@ impl EventHandler for Bot {
             Interaction::Modal(m) => {info!("Modal interaction: {}", m.data.custom_id)}
             _ => {}
         }
+    }
+
+    async fn guild_scheduled_event_user_add(&self, _ctx: Context, _subscribed: GuildScheduledEventUserAddEvent) {
+        todo!("DM with subscription options when triggered")
     }
 }
