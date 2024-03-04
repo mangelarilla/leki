@@ -9,7 +9,6 @@ mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
-use serenity::all::GuildScheduledEventUserAddEvent;
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
@@ -19,8 +18,8 @@ use tracing::{error, info};
 use shuttle_secrets::SecretStore;
 use sqlx::PgPool;
 use crate::commands::register_commands;
+use crate::prelude::Store;
 use crate::tasks::reset_all_reminders;
-use crate::prelude::*;
 
 struct Bot {
     guild: GuildId,
