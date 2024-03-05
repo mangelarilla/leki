@@ -1,10 +1,13 @@
 use std::time::Duration;
 use serenity::all::{ButtonStyle, ChannelId, CommandInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, Mention, Message, MessageId, MessageType, ScheduledEventStatus};
 use serenity::builder::CreateButton;
+use tracing::{info, instrument};
 use crate::prelude::*;
 
+#[instrument]
 pub async fn delete_event(interaction: &CommandInteraction, ctx: &Context, store: &Store) -> Result<()> {
     let message = interaction.data.resolved.messages.keys().next().unwrap();
+    info!("Event to delete: {message}");
     if let Ok(event) = store.get_event(*message).await {
         if let Some(id) = event.scheduled_event {
             let guild = interaction.guild_id.unwrap();
