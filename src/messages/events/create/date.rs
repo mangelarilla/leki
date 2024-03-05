@@ -49,6 +49,7 @@ fn select_day_channel() -> CreateInteractionResponse {
 fn select_time(day: &str) -> CreateInteractionResponse {
     let time_options = CreateSelectMenuKind::String {
         options: vec![
+            time_option("11:00"), time_option("12:00"),
             time_option("16:00"), time_option("16:30"),
             time_option("17:00"), time_option("17:30"),
             time_option("18:00"), time_option("18:30"),
