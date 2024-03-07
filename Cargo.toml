@@ -1,13 +1,13 @@
 [package]
 name = "leki"
-version = "1.3.2"
+version = "1.3.3"
 edition = "2021"
 
 [dependencies]
-shuttle-secrets = "0.40.0"
-shuttle-serenity = "0.40.0"
-shuttle-runtime = "0.40.0"
-shuttle-shared-db = { version = "0.40.0", features = ["postgres", "sqlx"] }
+shuttle-secrets = "0.41.0"
+shuttle-serenity = "0.41.0"
+shuttle-runtime = "0.41.0"
+shuttle-shared-db = { version = "0.41.0", features = ["postgres", "sqlx"] }
 anyhow = "1.0"
 thiserror = "1.0"
 serenity = { version = "0.12.1", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder", "collector"] }
