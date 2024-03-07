@@ -6,12 +6,12 @@ mod date;
 mod role;
 
 use std::sync::Arc;
-use serenity::all::{ChannelId, CommandInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp};
+use serenity::all::{ChannelId, Colour, CommandInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, ExecuteWebhook, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp, Webhook};
 use crate::events::{Event, EventKind, EventScopes};
 use crate::prelude::*;
 use crate::tasks;
 
-pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store: &Store) -> Result<()> {
+pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store: &Store, announcement_hook: &str) -> Result<()> {
     // Choose new event kind
     let (interaction, kind, message) = kind::select_event_kind(interaction, ctx).await?;
 
@@ -43,6 +43,8 @@ pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store
     store.create_event(event_message.id, &event).await?;
 
     tasks::set_reminder(event.datetime.clone().unwrap(), Arc::new(ctx.clone()), event_channel, event_message.id, Arc::new(store.clone()));
+
+    send_announcement(ctx, &event, event_channel, announcement_hook).await?;
 
     interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
         CreateInteractionResponseMessage::new()
@@ -87,4 +89,21 @@ async fn create_discord_event(guild: GuildId, ctx: &Context, data: &Event, chann
         .image(&data.image().await?)
     ).await?;
     Ok(event.id)
+}
+
+async fn send_announcement(ctx: &Context, event: &Event, channel: ChannelId, hook: &str) -> Result<()> {
+    let event_announcement = CreateEmbed::new()
+        .title(format!("Nuevo evento: {}", &event.title))
+        .description(&event.description)
+        .field(":hourglass_flowing_sand: Cuando", format!("<t:{}:F>", event.datetime.unwrap().timestamp()), false)
+        .field(":house: Donde", Mention::Channel(channel).to_string(), false)
+        .color(Colour::from_rgb(0, 255, 0));
+
+    let builder = ExecuteWebhook::new()
+        .embed(event_announcement);
+
+    Webhook::from_url(&ctx.http, hook).await?
+        .execute(&ctx.http, false, builder).await?;
+
+    Ok(())
 }

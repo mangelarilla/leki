@@ -23,7 +23,8 @@ use crate::tasks::reset_all_reminders;
 
 struct Bot {
     guild: GuildId,
-    store: Store
+    store: Store,
+    announcement_hook: String
 }
 
 #[shuttle_runtime::main]
@@ -48,10 +49,16 @@ async fn serenity(
         return Err(anyhow!("'DISCORD_GUILD' was not found").into());
     };
 
+    let announcement_hook = if let Some(url) = secret_store.get("DISCORD_ANNOUNCEMENTS_HOOK") {
+        url
+    } else {
+        return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
+    };
+
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot { guild, store: Store::new(pool) })
+        .event_handler(Bot { guild, store: Store::new(pool), announcement_hook })
         .await
         .expect("Err creating client");
 
@@ -87,7 +94,7 @@ impl EventHandler for Bot {
             Interaction::Command(command) => {
                 info!("Command interaction: {}", command.data.name);
                 if command.data.name == "events" {
-                    if let Err(why) = messages::events::create_event(&command, &ctx, &self.store).await {
+                    if let Err(why) = messages::events::create_event(&command, &ctx, &self.store, &self.announcement_hook).await {
                         error!("Create event: {why:#?}");
                     }
                 }
