@@ -93,11 +93,16 @@ async fn create_discord_event(guild: GuildId, ctx: &Context, data: &Event, chann
 
 async fn send_announcement(ctx: &Context, event: &Event, channel: ChannelId, hook: &str) -> Result<()> {
     let event_announcement = CreateEmbed::new()
-        .title(format!("Nuevo evento: {}", &event.title))
-        .description(&event.description)
-        .field(":hourglass_flowing_sand: Cuando", format!("<t:{}:F>", event.datetime.unwrap().timestamp()), false)
-        .field(":house: Donde", Mention::Channel(channel).to_string(), false)
-        .color(Colour::from_rgb(0, 255, 0));
+        .title("Nuevo evento!")
+        .field("Titulo", &event.title, false)
+        .field(":hourglass_flowing_sand: Cuando", format!("<t:{}:F>", event.datetime.unwrap().timestamp()), true)
+        .field(":house: Donde", Mention::Channel(channel).to_string(), true)
+        .field("", &event.description, false)
+        .color(Colour::from_rgb(0, 255, 0))
+        .thumbnail(match event.kind {
+            EventKind::Trial => "https://images.uesp.net/2/26/ON-mapicon-SoloTrial.png",
+            EventKind::PvP => "https://images.uesp.net/9/9e/ON-icon-alliance-Ebonheart.png"
+        });
 
     let builder = ExecuteWebhook::new()
         .embed(event_announcement);

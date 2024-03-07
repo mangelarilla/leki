@@ -96,7 +96,7 @@ fn calculate_next_date(day: &str, hour: u32, minute: u32) -> DateTime<Utc> {
     } else {
         target_diff_monday + (7 - now_diff_monday)
     };
-    now + chrono::Duration::days(next_target.into())
+    now + chrono::Duration::try_days(next_target.into()).unwrap()
 }
 
 fn to_weekday(day: &str) -> Option<Weekday> {

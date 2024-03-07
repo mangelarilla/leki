@@ -37,7 +37,7 @@ pub(crate) async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store
 pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, store: Arc<Store>) {
     unset_reminder(&channel);
     let handle = tokio::spawn(async move {
-        let duration = date - chrono::offset::Utc::now() - Duration::minutes(30);
+        let duration = date - chrono::offset::Utc::now() - Duration::try_minutes(30).unwrap();
         event!(Level::TRACE, "{} minutes left", duration.num_minutes());
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;
