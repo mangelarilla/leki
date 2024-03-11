@@ -38,9 +38,8 @@ pub async fn edit_event(interaction: &CommandInteraction, ctx: &Context, store: 
             }
 
             if interaction.data.custom_id == "edit_info" {
-                if let Ok(modal) =info::edit_info(&interaction, ctx, store, &event, message.id).await {
-                    modal.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(edit_event_message(&event))).await?;
-                }
+                let modal = info::edit_info(&interaction, ctx, store, &event, message.id).await?;
+                modal.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(edit_event_message(&event))).await?;
             }
 
             event = store.get_event(message.id).await?;
