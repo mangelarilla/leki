@@ -39,7 +39,7 @@ pub(super) async fn edit_info(interaction: &ComponentInteraction, ctx: &Context,
         .components(vec![
             components::short_input("Titulo", "edit_info_title", &event.title, false),
             components::short_input("Duracion", "edit_info_duration", &event.duration.to_string(), false),
-            components::short_input("Descripcion", "edit_info_description", &event.description, false),
+            components::long_input("Descripcion", "edit_info_description", &event.description, false),
         ]))).await?;
 
     if let Some(modal) = interaction.message.await_modal_interaction(&ctx.shard).await {
