@@ -12,11 +12,9 @@ pub(crate) fn long_input(label: &str, id: &str, placeholder: &str, required: boo
         .required(required))
 }
 
-fn truncate(s: &str, max_chars: usize) -> String {
-    let s = match s.char_indices().nth(max_chars - 3) {
+fn truncate(s: &str, max_chars: usize) -> &str {
+    match s.char_indices().nth(max_chars - 3) {
         None => s,
-        Some((idx, _)) => &s[..idx],
-    };
-
-    format!("{s}...")
+        Some((idx, _)) => &format!("{}...", &s[..idx]),
+    }
 }
