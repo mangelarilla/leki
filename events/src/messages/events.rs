@@ -1,15 +1,15 @@
-pub(crate) mod delete_event;
-pub(crate) mod edit;
-pub(crate) mod create;
-pub(crate) mod signup;
+pub mod delete_event;
+pub mod edit;
+pub mod create;
+pub mod signup;
 
 use rand::prelude::SliceRandom;
 use serenity::all::{CreateInteractionResponse, CreateInteractionResponseMessage};
 
-pub(crate) use delete_event::delete_event;
-pub(crate) use edit::edit_event;
-pub(crate) use create::create_event;
-pub(crate) use signup::signup_event;
+pub use delete_event::delete_event;
+pub use edit::edit_event;
+pub use create::create_event;
+pub use signup::signup_event;
 
 fn not_an_event_response() -> CreateInteractionResponse {
     CreateInteractionResponse::Message(CreateInteractionResponseMessage::new()

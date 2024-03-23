@@ -14,7 +14,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub(super) fn new(pool: PgPool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Store {pool}
     }
 

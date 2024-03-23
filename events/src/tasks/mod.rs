@@ -15,7 +15,7 @@ lazy_static! {
     static ref HASHMAP: Mutex<HashMap<ChannelId, JoinHandle<()>>> = Mutex::new(HashMap::new());
 }
 
-pub(crate) async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store: Arc<Store>) {
+pub async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store: Arc<Store>) {
     let span = trace_span!("ready_reminders");
     async move {
         let events = guild.scheduled_events(&ctx.http, false).await.unwrap();

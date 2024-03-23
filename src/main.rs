@@ -1,11 +1,4 @@
-mod error;
-mod prelude;
-mod utils;
-mod tasks;
-pub mod events;
 mod commands;
-mod messages;
-mod store;
 
 use std::sync::Arc;
 use anyhow::anyhow;
@@ -14,12 +7,11 @@ use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
 use serenity::model::prelude::{Interaction};
 use serenity::prelude::*;
+use shuttle_runtime::SecretStore;
 use tracing::{error, info};
-use shuttle_secrets::SecretStore;
 use sqlx::PgPool;
+use events::store::Store;
 use crate::commands::register_commands;
-use crate::prelude::Store;
-use crate::tasks::reset_all_reminders;
 
 struct Bot {
     guild: GuildId,
@@ -29,7 +21,7 @@ struct Bot {
 
 #[shuttle_runtime::main]
 async fn serenity(
-    #[shuttle_secrets::Secrets] secret_store: SecretStore,
+    #[shuttle_runtime::Secrets] secret_store: SecretStore,
     #[shuttle_shared_db::Postgres] pool: PgPool
 ) -> shuttle_serenity::ShuttleSerenity {
     sqlx::migrate!().run(&pool).await.expect("Migrations failed :(");
@@ -82,7 +74,7 @@ impl EventHandler for Bot {
 
         register_commands(&ctx, self.guild).await;
 
-        reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
+        events::tasks::reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -94,19 +86,19 @@ impl EventHandler for Bot {
             Interaction::Command(command) => {
                 info!("Command interaction: {}", command.data.name);
                 if command.data.name == "events" {
-                    if let Err(why) = messages::events::create_event(&command, &ctx, &self.store, &self.announcement_hook).await {
+                    if let Err(why) = events::messages::events::create_event(&command, &ctx, &self.store, &self.announcement_hook).await {
                         error!("Create event: {why:#?}");
                     }
                 }
 
                 if command.data.name == "Edit event" {
-                    if let Err(why) = messages::events::edit_event(&command, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::edit_event(&command, &ctx, &self.store).await {
                         error!("Edit event: {why:#?}");
                     }
                 }
 
                 if command.data.name == "Delete event" {
-                    if let Err(why) = messages::events::delete_event(&command, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::delete_event(&command, &ctx, &self.store).await {
                         error!("Edit event: {why:#?}");
                     }
                 }
@@ -114,7 +106,7 @@ impl EventHandler for Bot {
             Interaction::Component(component) => {
                 info!("Component interaction: {}", component.data.custom_id);
                 if component.data.custom_id.starts_with("signup") {
-                    if let Err(why) = messages::events::signup_event(&component, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::signup_event(&component, &ctx, &self.store).await {
                         error!("Signup event: {why:#?}");
                     }
                 }
