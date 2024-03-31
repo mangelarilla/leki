@@ -16,7 +16,7 @@ pub(super) async fn select_date(message: &Message, interaction: &ComponentIntera
             interaction.create_response(&ctx.http, select_time(&day)).await?;
             if let Some(interaction) = message.await_component_interaction(&ctx.shard).await {
                 if let Some(time) = get_selected_option(&interaction) {
-                    let hour = (&time[..2]).parse::<u32>()?; // hack for spanish timezone
+                    let hour = (&time[..2]).parse::<u32>()? - 2; // hack for spanish timezone
                     let minute = (&time[3..]).parse::<u32>()?;
 
                     event.datetime = calculate_next_date(&day, hour, minute)
