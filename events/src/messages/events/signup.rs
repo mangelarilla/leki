@@ -50,7 +50,9 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                     if event.leader != interaction.user.id &&
                         (event.notification_role.is_some_and(|r| !member.roles.contains(&r)) ||
                             (event.notification_role.is_none() && initiation_check(&member, event.kind))) {
-                        player.flex.push(role);
+                        if !player.flex.contains(&role) {
+                            player.flex.push(role);
+                        }
                         event.add_player(EventRole::Reserve, player.clone());
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
 
@@ -80,7 +82,7 @@ fn select_class_flex(kind: EventKind) -> CreateInteractionResponse {
     CreateInteractionResponse::Message(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .select_menu(select_flex_roles(kind.roles()))
+            .select_menu(select_flex_roles(kind.roles().into_iter().filter(|r| !r.is_backup_role()).collect()))
             .select_menu(select_player_class())
     )
 }
