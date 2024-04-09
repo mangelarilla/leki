@@ -16,9 +16,6 @@ pub async fn register_commands(ctx: &Context, guild: GuildId) {
             .name_localized("es-ES","Eliminar evento")
             .kind(CommandType::Message)
         ).await;
-        register_command(ctx, guild, CreateCommand::new("help")
-            .description("Como se usa Leki")
-        ).await;
     }.instrument(span).await;
 }
 
@@ -26,9 +23,6 @@ async fn register_command(ctx: &Context, guild: GuildId, builder: CreateCommand)
     let command = guild.create_command(&ctx.http, builder).await;
     match command {
         Ok(command) => {
-            if command.name == "help" {
-                guild.delete_command(&ctx.http, command.id).await.unwrap();
-            }
             info!("Command '{}' registered", &command.name)
         },
         Err(error) => error!("Error registering command: {}",  error)

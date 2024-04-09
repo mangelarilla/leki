@@ -73,6 +73,7 @@ impl EventHandler for Bot {
         info!("{} is connected!", ready.user.name);
 
         register_commands(&ctx, self.guild).await;
+        crafting::register_commands(self.guild, &ctx).await;
 
         events::tasks::reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
     }
@@ -102,16 +103,26 @@ impl EventHandler for Bot {
                         error!("Edit event: {why:#?}");
                     }
                 }
+
+                if command.data.name == "gear" {
+                    if let Err(why) = crafting::gear_set_request(&command, &ctx).await {
+                        error!("Edit event: {why:#?}");
+                    }
+                }
             }
             Interaction::Component(component) => {
                 info!("Component interaction: {}", component.data.custom_id);
+
                 if component.data.custom_id.starts_with("signup") {
                     if let Err(why) = events::messages::events::signup_event(&component, &ctx, &self.store).await {
                         error!("Signup event: {why:#?}");
                     }
                 }
             }
-            Interaction::Modal(m) => {info!("Modal interaction: {}", m.data.custom_id)}
+            Interaction::Modal(m) => {info!("Modal interaction: {}", m.data.custom_id)},
+            Interaction::Autocomplete(command) => {
+                crafting::gear_set_autocomplete(command, &ctx).await.unwrap();
+            }
             _ => {}
         }
     }
