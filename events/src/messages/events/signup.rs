@@ -14,7 +14,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
         let mut player = Player::new(interaction.user.id, member.display_name());
 
         let dm = event.leader.create_dm_channel(&ctx.http).await?;
-        let user = Mention::User(interaction.user.id).to_string();
+        let username = member.display_name();
         let channel = Mention::Channel(interaction.channel_id).to_string();
 
         if role == EventRole::Absent {
@@ -24,7 +24,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
             interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member, None, event.leader, event.kind))).await?;
 
             dm.send_message(&ctx.http, CreateMessage::new()
-                .content(format!("{user} no va a poder asistir al evento en {channel}"))
+                .content(format!("{username} no va a poder asistir al evento en {channel}"))
             ).await?;
         } else {
 
@@ -55,14 +55,14 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
 
                         dm.send_message(&ctx.http, CreateMessage::new()
-                            .content(format!("{user} no cumple los requisitos de titular y se ha movido a reserva en el evento de {channel}, flexible a: {}", flex_as_string.join(",")))
+                            .content(format!("{username} no cumple los requisitos de titular y se ha movido a reserva en el evento de {channel}, flexible a: {}", flex_as_string.join(",")))
                         ).await?;
                     } else {
                         let role = event.add_player(role, player.clone());
                         store.signup_player(original_message.id, role, &player).await?;
 
                         dm.send_message(&ctx.http, CreateMessage::new()
-                            .content(format!("{user} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
+                            .content(format!("{username} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
                         ).await?;
                     }
 
