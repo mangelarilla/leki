@@ -1,5 +1,10 @@
+use std::io::Write;
 use std::time::Duration;
+use base64::Engine;
+use flate2::Compression;
+use flate2::write::DeflateEncoder;
 use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateActionRow, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, Message};
+use serenity::builder::CreateEmbed;
 use crate::events::{Event, EventRole, EventScopes, Player};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
@@ -67,9 +72,19 @@ fn create_event_scope_select(event: &Event) -> CreateInteractionResponse {
 }
 
 fn create_event_scope_role(event: &Event) -> CreateInteractionResponse {
+    let signups = serde_json::to_string(&event.roles).unwrap();
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(signups.as_bytes()).unwrap();
+    let compressed = encoder.finish().unwrap();
+    let encoded = base64::prelude::BASE64_STANDARD.encode(compressed);
+
     CreateInteractionResponse::UpdateMessage(
         CreateInteractionResponseMessage::new()
             .embed(event.embed_preview())
+            .add_embed(CreateEmbed::new()
+                .title("Codigo de plantilla para importar en futuros eventos")
+                .description(encoded)
+            )
             .components(vec![scope_role_buttons(event), scope_reserve_button(), scope_confirm()])
     )
 }

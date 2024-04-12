@@ -1,7 +1,8 @@
 use std::str::FromStr;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ChannelId, ComponentInteraction, Context, CreateEmbed, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Member, Mention, RoleId, UserId};
 use serenity::builder::CreateInteractionResponse;
-use crate::events::{EventKind, EventRole, Player, PlayerClass};
+use crate::events::{EventKind, EventRole, Player, PlayerClass, PlayersInRole};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
 use tracing::{info, instrument};
@@ -76,6 +77,11 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
     }
 
     Ok(())
+}
+
+#[derive(Deserialize, Serialize)]
+struct SignupTemplate {
+    roles: Vec<PlayersInRole>
 }
 
 fn select_class_flex(kind: EventKind) -> CreateInteractionResponse {
