@@ -7,7 +7,7 @@ mod role;
 
 use std::sync::Arc;
 use serenity::all::{ChannelId, Colour, CommandInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, ExecuteWebhook, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp, Webhook};
-use crate::events::{Event, EventKind, EventScopes};
+use crate::events::{Event, EventKind, EventRole, EventScopes};
 use crate::prelude::*;
 use crate::tasks;
 
@@ -65,13 +65,19 @@ fn signup_buttons(event: &Event) -> Vec<CreateActionRow> {
             .filter_map(|r| if !r.is_backup_role() {
                 Some(r.to_button(format!("signup_{}", r.to_id()), r.to_string()))
             } else { None }).collect()));
-    };
 
-    components.push(CreateActionRow::Buttons(event.kind.roles()
-        .into_iter()
-        .filter_map(|r| if r.is_backup_role() {
-            Some(r.to_button(format!("signup_{}", r.to_id()), r.to_string()))
-        } else { None }).collect()));
+        components.push(CreateActionRow::Buttons(event.kind.roles()
+            .into_iter()
+            .filter_map(|r| if r.is_backup_role() {
+                Some(r.to_button(format!("signup_{}", r.to_id()), r.to_string()))
+            } else { None }).collect()));
+    } else {
+        components.push(CreateActionRow::Buttons(vec![
+            EventRole::Absent.to_button(format!("signup_{}", EventRole::Absent.to_id()), EventRole::Absent.to_string())
+        ]))
+    }
+
+
 
     components
 }
