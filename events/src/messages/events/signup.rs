@@ -51,7 +51,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                     if event.leader != interaction.user.id &&
                         (event.notification_role.is_some_and(|r| !member.roles.contains(&r)) ||
                             (event.notification_role.is_none() && initiation_check(&member, event.kind))) {
-                        if !player.flex.contains(&role) {
+                        if !player.flex.contains(&role) && role != EventRole::Reserve {
                             player.flex.push(role);
                         }
                         event.add_player(EventRole::Reserve, player.clone());
