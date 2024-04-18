@@ -3,12 +3,13 @@ mod entities;
 mod error;
 mod prelude;
 
-use serenity::all::{ButtonStyle, ChannelId, Color, CommandInteraction, CommandOptionType, CommandType, Context, CreateAutocompleteResponse, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, GuildId, ReactionType};
-use serenity::builder::{CreateButton, CreateCommand, CreateEmbed};
-use tracing::log::info;
+use serenity::all::{CommandInteraction, CommandOptionType, CommandType, Context, CreateAutocompleteResponse, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, GuildId, ReactionType};
+use serenity::builder::{CreateCommand, CreateEmbed};
+use strum::EnumProperty;
 use prelude::*;
+use crate::entities::GearQuality;
 use crate::sets::armor::armour_set_request;
-use crate::sets::GearSet;
+use crate::sets::{GearSet, SetEmbed};
 
 pub async fn gear_set_autocomplete(command: CommandInteraction, ctx: &Context) -> serenity::Result<()> {
     let option = command.data.options.first().unwrap();
@@ -36,46 +37,32 @@ pub async fn gear_set_request(command: &CommandInteraction, ctx: &Context) -> Re
     command.create_response(&ctx.http, CreateInteractionResponse::Message(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .embed(CreateEmbed::new().title(format!("Set: {gear_set}")).description("Configura la peticion de equipo"))
-            .button(CreateButton::new("crafting_armour_set").label("Armadura").emoji(ReactionType::Unicode("🛡️".to_string())))
-            .button(CreateButton::new("crafting_weapon_set").label("Armas").emoji(ReactionType::Unicode("⚔️".to_string())))
-            .button(CreateButton::new("crafting_jewelry_set").label("Joyeria").emoji(ReactionType::Unicode("💎".to_string())))
+            .embed(CreateEmbed::new().for_set(&gear_set))
+            .select_menu(sets::quality_options())
     )).await?;
 
     let response = command.get_response(&ctx.http).await?;
 
-    let parts = armour_set_request(&response, ctx).await?;
+    let interaction = response.await_component_interaction(&ctx).await.ok_or(Error::Timeout)?;
+    let quality = get_selected_gear::<GearQuality>(&interaction).pop().unwrap();
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        sets::request_menu()
+            .embed(CreateEmbed::new()
+                .for_set(&gear_set)
+                .with_quality(&quality)
+            )
+    )).await?;
 
-    response.channel_id.send_message(&ctx, CreateMessage::new()
-        .content("@Fabricantes")
-        .embed(
-            CreateEmbed::new()
-                .title("🔨 Peticion de Set")
-                .description(format!("{gear_set}"))
-                .color(Color::from_rgb(0, 255, 0))
-        )
-        .button(CreateButton::new("request_en").label("Ver encargo").emoji(ReactionType::Unicode("🇬🇧".to_string())))
-        .button(CreateButton::new("request_es").label("Ver encargo").emoji(ReactionType::Unicode("🇪🇸".to_string())))
-        .button(CreateButton::new("request_accept").label("Aceptar encargo").style(ButtonStyle::Success))
-    ).await?;
-
-    response.channel_id.send_message(&ctx, CreateMessage::new()
-        .content("Encargo aceptado por **polerokfi**")
-        .embed(
-            CreateEmbed::new()
-                .title("🔨 Peticion de Set")
-                .description(format!("{gear_set}"))
-                .color(Color::from_rgb(255, 0, 0))
-        )
-        .button(CreateButton::new("request_en").label("Ver encargo").emoji(ReactionType::Unicode("🇬🇧".to_string())))
-        .button(CreateButton::new("request_es").label("Ver encargo").emoji(ReactionType::Unicode("🇪🇸".to_string())))
-    ).await?;
+    let interaction = response.await_component_interaction(&ctx).await.ok_or(Error::Timeout)?;
+    if interaction.data.custom_id == "crafting_armour_set" {
+        armour_set_request(&response, interaction, gear_set, quality, ctx).await?;
+    }
 
     Ok(())
 }
 
 pub async fn register_commands(guild: GuildId, ctx: &Context) {
-    let command = guild.create_command(&ctx.http, CreateCommand::new("gear")
+    guild.create_command(&ctx.http, CreateCommand::new("gear")
         .name_localized("es-ES", "equipo")
         .kind(CommandType::ChatInput)
         .description("Gear request")
@@ -85,12 +72,5 @@ pub async fn register_commands(guild: GuildId, ctx: &Context) {
             .set_autocomplete(true)
             .required(true))
     ).await.unwrap();
-
-    ChannelId::new(1134051372640247959)
-        .send_message(&ctx.http, CreateMessage::new()
-            .embed(CreateEmbed::new()
-                .title("Como hacer una peticion de crafteo")
-                .field("", format!("Para hacer una peticion de equipo usa </{}:{}>", command.name, command.id.get()), false)
-            )).await.unwrap();
 }
 

@@ -1,23 +1,24 @@
 pub mod armor;
 
 use std::fmt::{Display, Formatter};
-use serenity::all::{AutocompleteChoice};
-use strum::EnumProperty;
+use serenity::all::{AutocompleteChoice, CreateButton, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, ReactionType};
+use serenity::builder::CreateEmbed;
+use strum::{EnumProperty, IntoEnumIterator};
 use crate::entities::{GearQuality, MaterialCost};
 use crate::entities::armour::ArmourParts;
 use crate::entities::jewelry::Jewelries;
 use crate::entities::traits::GearTraits;
 use crate::entities::weapon::WeaponKind;
-use crate::prelude::Error;
+use crate::prelude::{Error};
 
 pub struct GearPiece<T> {
     pub part: T,
-    pub gear_trait: GearTraits,
-    pub quality: GearQuality
+    pub gear_trait: GearTraits
 }
 
-pub struct GearRequest {
+struct GearRequest {
     set: GearSet,
+    quality: GearQuality,
     armour: Vec<GearPiece<ArmourParts>>,
     weapons: Vec<GearPiece<WeaponKind>>,
     jewelries: Vec<GearPiece<Jewelries>>
@@ -29,9 +30,45 @@ pub struct GearSet {
     name_es: String,
 }
 
+pub trait SetEmbed {
+    fn for_set(&self, set: &GearSet) -> Self;
+    fn with_quality(&self, quality: &GearQuality) -> Self;
+    fn with_armor(&self, parts: &Vec<GearPiece<ArmourParts>>) -> Self;
+}
+
+impl SetEmbed for CreateEmbed {
+    fn for_set(&self, gear_set: &GearSet) -> Self {
+        self.clone()
+            .title(format!("Set: {gear_set}"))
+            .description("Configura la peticion de equipo")
+    }
+
+    fn with_quality(&self, quality: &GearQuality) -> Self {
+        self.clone()
+            .field(
+                "Calidad del set",
+                format!("{} {}", quality.get_str("Emoji").unwrap(), quality.to_string()),
+                false
+            )
+    }
+
+    fn with_armor(&self, parts: &Vec<GearPiece<ArmourParts>>) -> Self {
+        self.clone()
+            .field(
+                "Armadura",
+                parts
+                    .iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<String>>()
+                    .join("\n"),
+                false
+            )
+    }
+}
+
 impl Display for GearPiece<ArmourParts> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} | {}", &self.quality.get_str("Emoji").unwrap().to_string(), &self.part.to_string(), &self.gear_trait.to_string())
+        write!(f, "{} | {}", &self.part.to_string(), &self.gear_trait.to_string())
     }
 }
 
@@ -69,6 +106,25 @@ impl GearSet {
         AutocompleteChoice::new(&self.name, self.name.to_string())
             .add_localized_name("es-ES", &self.name_es)
     }
+}
+
+pub fn request_menu() -> CreateInteractionResponseMessage {
+    CreateInteractionResponseMessage::new()
+        .button(CreateButton::new("crafting_armour_set").label("Armadura").emoji(ReactionType::Unicode("🛡️".to_string())))
+        .button(CreateButton::new("crafting_weapon_set").label("Armas").emoji(ReactionType::Unicode("⚔️".to_string())))
+        .button(CreateButton::new("crafting_jewelry_set").label("Joyeria").emoji(ReactionType::Unicode("💎".to_string())))
+}
+
+pub fn quality_options() -> CreateSelectMenu {
+    let quality = CreateSelectMenuKind::String {
+        options: GearQuality::iter()
+            .map(|opt| CreateSelectMenuOption::new(opt.to_string(), opt.to_string())
+                .emoji(ReactionType::Unicode(opt.get_str("Emoji").unwrap().to_string())))
+            .collect()
+    };
+
+    CreateSelectMenu::new("armour_quality", quality)
+        .placeholder("Calidad del set")
 }
 
 pub fn gear_sets() -> Vec<GearSet> {
