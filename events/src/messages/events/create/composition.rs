@@ -1,10 +1,15 @@
 use std::time::Duration;
-use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, Message, ModalInteraction};
-use crate::events::{Event, EventRole};
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
+use flate2::read::DeflateDecoder;
+use serenity::all::{ButtonStyle, Context, CreateActionRow, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateModal, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, Interaction, Message, ModalInteraction};
+use crate::events::{Event, EventRole, PlayersInRole};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
+use std::io::prelude::*;
+use crate::prelude::components::long_input;
 
-pub(super) async fn handle_composition(message: &Message, modal: &ModalInteraction, ctx: &Context, event: &mut Event) -> Result<ComponentInteraction> {
+pub(super) async fn handle_composition(message: &Message, modal: &ModalInteraction, ctx: &Context, event: &mut Event) -> Result<Interaction> {
     modal.create_response(&ctx.http, create_event_default_composition(&event)).await?;
     if let Some(interaction) = message.await_component_interaction(&ctx.shard).await {
         // Select modify composition
@@ -32,11 +37,27 @@ pub(super) async fn handle_composition(message: &Message, modal: &ModalInteracti
                         interaction.create_response(&ctx.http, create_event_change_composition(&event)).await?;
                     }
                 } else {
-                    return Ok(interaction);
+                    return Ok(Interaction::Component(interaction));
                 }
             }
         }
-        Ok(interaction)
+
+        if interaction.data.custom_id.contains("import") {
+            interaction.create_response(&ctx, create_event_import_composition()).await?;
+            if let Some(interaction) = message.await_modal_interaction(&ctx).await {
+                let code = get_input_value(&interaction.data.components, 0).unwrap();
+                let decoded = BASE64_STANDARD.decode(code.as_bytes())?;
+                let mut decoder = DeflateDecoder::new(decoded.as_slice());
+                let mut json_roles = String::new();
+                decoder.read_to_string(&mut json_roles)?;
+                let roles: Vec<PlayersInRole> = serde_json::from_str(&json_roles)?;
+
+                event.roles = roles;
+                return Ok(Interaction::Modal(interaction))
+            }
+        }
+
+        Ok(Interaction::Component(interaction))
     } else {
         Err(Error::Timeout)
     }
@@ -51,6 +72,9 @@ fn create_event_default_composition(event: &Event) -> CreateInteractionResponse 
                 .style(ButtonStyle::Success))
             .button(CreateButton::new("create_event_composition_modify")
                 .label("Modificar")
+                .style(ButtonStyle::Secondary))
+            .button(CreateButton::new("create_event_composition_import")
+                .label("Importar desde codigo")
                 .style(ButtonStyle::Secondary))
     )
 }
@@ -67,6 +91,15 @@ fn composition_embeds(event: &Event) -> Vec<CreateEmbed> {
                 }
             }))
     ]
+}
+
+fn create_event_import_composition() -> CreateInteractionResponse {
+    CreateInteractionResponse::Modal(
+        CreateModal::new("create_event_composition_import_modal", "Importar codigo de plantilla")
+            .components(vec![
+                long_input("Codigo de plantilla", "roster_code", "ec86e8eca854b02f43fb69d63f15e53d", true)
+            ])
+    )
 }
 
 fn create_event_change_composition(event: &Event) -> CreateInteractionResponse {

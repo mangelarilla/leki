@@ -115,13 +115,24 @@ impl Event {
             .fields(self.kind.roles().iter()
                 .map(|role| {
                     let pr = self.roles.iter().find(|pr| pr.role == *role).unwrap();
-                    let formatted_label = if let Some(max) = pr.max {
-                        format!("{} {} ({}/{max})", pr.role.emoji().to_string(), pr.role, pr.players.len())
+                    let reserves = self.roles.iter().find(|pr| pr.role == EventRole::Reserve).unwrap();
+                    let reserves_count = reserves.players.iter()
+                        .filter(|p| p.flex.contains(role))
+                        .count();
+                    let max_label = if let Some(max) = pr.max {
+                        format!("{}/{max}", pr.players.len())
                     } else {
-                        format!("{} {} ({})", pr.role.emoji().to_string(), pr.role, pr.players.len())
+                        format!("{}", pr.players.len())
                     };
 
-                    (formatted_label, format_players_embed(&pr.players), false)
+                    let reserves_label = if reserves_count > 0 {
+                        format!("+{reserves_count}")
+                    } else {
+                        "".to_string()
+                    };
+
+                    (format!("{} {} ({max_label}) {reserves_label}", pr.role.emoji().to_string(), pr.role),
+                     format_players_embed(&pr.players), false)
                 })
             )
             .field("", "\u{200b}", false)
@@ -229,8 +240,8 @@ fn format_flex(roles: &Vec<EventRole>) -> String {
     if roles.is_empty() {
         String::new()
     } else {
-        let role_strings = roles.iter().map(|r| r.to_string()).collect::<Vec<String>>();
-        format!("(Flex: {})", role_strings.join(","))
+        let role_strings = roles.iter().map(|r| r.emoji().to_string()).collect::<Vec<String>>();
+        format!("({})", role_strings.join("|"))
     }
 }
 

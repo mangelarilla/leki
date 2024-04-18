@@ -1,7 +1,8 @@
 use std::str::FromStr;
+use serde::{Deserialize, Serialize};
 use serenity::all::{ChannelId, ComponentInteraction, Context, CreateEmbed, CreateInteractionResponseMessage, CreateMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, EditMessage, Member, Mention, RoleId, UserId};
 use serenity::builder::CreateInteractionResponse;
-use crate::events::{EventKind, EventRole, Player, PlayerClass};
+use crate::events::{EventKind, EventRole, Player, PlayerClass, PlayersInRole};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
 use tracing::{info, instrument};
@@ -14,7 +15,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
         let mut player = Player::new(interaction.user.id, member.display_name());
 
         let dm = event.leader.create_dm_channel(&ctx.http).await?;
-        let user = Mention::User(interaction.user.id).to_string();
+        let username = member.display_name();
         let channel = Mention::Channel(interaction.channel_id).to_string();
 
         if role == EventRole::Absent {
@@ -24,7 +25,7 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
             interaction.create_response(&ctx.http, CreateInteractionResponse::Message(signup_msg(&member, None, event.leader, event.kind))).await?;
 
             dm.send_message(&ctx.http, CreateMessage::new()
-                .content(format!("{user} no va a poder asistir al evento en {channel}"))
+                .content(format!("{username} no va a poder asistir al evento en {channel}"))
             ).await?;
         } else {
 
@@ -50,19 +51,21 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
                     if event.leader != interaction.user.id &&
                         (event.notification_role.is_some_and(|r| !member.roles.contains(&r)) ||
                             (event.notification_role.is_none() && initiation_check(&member, event.kind))) {
-                        player.flex.push(role);
+                        if !player.flex.contains(&role) && role != EventRole::Reserve {
+                            player.flex.push(role);
+                        }
                         event.add_player(EventRole::Reserve, player.clone());
                         store.signup_player(original_message.id, EventRole::Reserve, &player).await?;
 
                         dm.send_message(&ctx.http, CreateMessage::new()
-                            .content(format!("{user} no cumple los requisitos de titular y se ha movido a reserva en el evento de {channel}, flexible a: {}", flex_as_string.join(",")))
+                            .content(format!("{username} no cumple los requisitos de titular y se ha movido a reserva en el evento de {channel}, flexible a: {}", flex_as_string.join(",")))
                         ).await?;
                     } else {
                         let role = event.add_player(role, player.clone());
                         store.signup_player(original_message.id, role, &player).await?;
 
                         dm.send_message(&ctx.http, CreateMessage::new()
-                            .content(format!("{user} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
+                            .content(format!("{username} se ha apuntado al evento en {channel} como {role}, y flexible a: {}", flex_as_string.join(",")))
                         ).await?;
                     }
 
@@ -76,11 +79,16 @@ pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, sto
     Ok(())
 }
 
+#[derive(Deserialize, Serialize)]
+struct SignupTemplate {
+    roles: Vec<PlayersInRole>
+}
+
 fn select_class_flex(kind: EventKind) -> CreateInteractionResponse {
     CreateInteractionResponse::Message(
         CreateInteractionResponseMessage::new()
             .ephemeral(true)
-            .select_menu(select_flex_roles(kind.roles()))
+            .select_menu(select_flex_roles(kind.roles().into_iter().filter(|r| !r.is_backup_role()).collect()))
             .select_menu(select_player_class())
     )
 }

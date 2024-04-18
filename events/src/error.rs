@@ -5,6 +5,10 @@ pub enum Error {
     #[error(transparent)]
     Serenity(#[from] serenity::prelude::SerenityError),
     #[error(transparent)]
+    Base64(#[from] base64::DecodeError),
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error(transparent)]
     Timestamp(#[from] serenity::model::timestamp::InvalidTimestamp),
     #[error(transparent)]
     ParseInt(#[from] std::num::ParseIntError),
