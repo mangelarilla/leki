@@ -1,7 +1,8 @@
 pub mod armor;
+pub mod jewelry;
 
 use std::fmt::{Display, Formatter};
-use serenity::all::{AutocompleteChoice, CreateButton, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, ReactionType};
+use serenity::all::{AutocompleteChoice, ComponentInteraction, Context, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, Message, ReactionType};
 use serenity::builder::CreateEmbed;
 use strum::{EnumProperty, IntoEnumIterator};
 use crate::entities::{GearQuality, MaterialCost};
@@ -9,9 +10,9 @@ use crate::entities::armour::ArmourParts;
 use crate::entities::jewelry::Jewelries;
 use crate::entities::traits::GearTraits;
 use crate::entities::weapon::WeaponKind;
-use crate::prelude::{Error};
+use crate::prelude::{enum_list_to_options, Error, get_selected_gear};
 
-pub struct GearPiece<T> {
+pub struct GearPiece<T: Display> {
     pub part: T,
     pub gear_trait: GearTraits
 }
@@ -33,7 +34,7 @@ pub struct GearSet {
 pub trait SetEmbed {
     fn for_set(&self, set: &GearSet) -> Self;
     fn with_quality(&self, quality: &GearQuality) -> Self;
-    fn with_armor(&self, parts: &Vec<GearPiece<ArmourParts>>) -> Self;
+    fn with_gear<T: Display>(&self, label: &str, parts: &Vec<GearPiece<T>>) -> Self;
 }
 
 impl SetEmbed for CreateEmbed {
@@ -52,10 +53,10 @@ impl SetEmbed for CreateEmbed {
             )
     }
 
-    fn with_armor(&self, parts: &Vec<GearPiece<ArmourParts>>) -> Self {
+    fn with_gear<T: Display>(&self, label: &str, parts: &Vec<GearPiece<T>>) -> Self {
         self.clone()
             .field(
-                "Armadura",
+                label,
                 parts
                     .iter()
                     .map(|p| p.to_string())
@@ -66,7 +67,7 @@ impl SetEmbed for CreateEmbed {
     }
 }
 
-impl Display for GearPiece<ArmourParts> {
+impl<T: Display> Display for GearPiece<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} | {}", &self.part.to_string(), &self.gear_trait.to_string())
     }
@@ -125,6 +126,22 @@ pub fn quality_options() -> CreateSelectMenu {
 
     CreateSelectMenu::new("armour_quality", quality)
         .placeholder("Calidad del set")
+}
+
+async fn select_trait(message: &Message, interaction: &ComponentInteraction, ctx: &Context, part: String, traits: Vec<GearTraits>) -> crate::prelude::Result<(ComponentInteraction, GearTraits)> {
+    let armour_trait = CreateSelectMenuKind::String {options: enum_list_to_options::<GearTraits>(traits)};
+
+    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
+        CreateInteractionResponseMessage::new()
+            .select_menu(
+                CreateSelectMenu::new("armour_trait", armour_trait)
+                    .placeholder(format!("Rasgo para {part}"))
+            )
+    )).await?;
+
+    let interaction = message.await_component_interaction(&ctx).await.ok_or(Error::Timeout)?;
+    let selected = get_selected_gear::<GearTraits>(&interaction).pop().unwrap();
+    Ok((interaction, selected))
 }
 
 pub fn gear_sets() -> Vec<GearSet> {

@@ -91,7 +91,7 @@ pub enum GearTraits {
 //     }
 // }
 
-fn armour_traits() -> Vec<GearTraits> {
+pub fn armour_traits() -> Vec<GearTraits> {
     vec![
         GearTraits::Infused,
         GearTraits::Divines,
@@ -105,7 +105,7 @@ fn armour_traits() -> Vec<GearTraits> {
     ]
 }
 
-fn weapon_traits() -> Vec<GearTraits> {
+pub fn weapon_traits() -> Vec<GearTraits> {
     vec![
         GearTraits::Charged,
         GearTraits::Defending,
@@ -119,7 +119,7 @@ fn weapon_traits() -> Vec<GearTraits> {
     ]
 }
 
-fn jewelry_traits() -> Vec<GearTraits> {
+pub fn jewelry_traits() -> Vec<GearTraits> {
     vec![
         GearTraits::Infused,
         GearTraits::Arcane,

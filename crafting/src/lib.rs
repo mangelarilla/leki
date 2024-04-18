@@ -3,13 +3,14 @@ mod entities;
 mod error;
 mod prelude;
 
-use serenity::all::{CommandInteraction, CommandOptionType, CommandType, Context, CreateAutocompleteResponse, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, GuildId, ReactionType};
+use serenity::all::{CommandInteraction, CommandOptionType, CommandType, Context, CreateAutocompleteResponse, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId};
 use serenity::builder::{CreateCommand, CreateEmbed};
 use strum::EnumProperty;
 use prelude::*;
 use crate::entities::GearQuality;
 use crate::sets::armor::armour_set_request;
 use crate::sets::{GearSet, SetEmbed};
+use crate::sets::jewelry::jewelry_set_request;
 
 pub async fn gear_set_autocomplete(command: CommandInteraction, ctx: &Context) -> serenity::Result<()> {
     let option = command.data.options.first().unwrap();
@@ -56,6 +57,8 @@ pub async fn gear_set_request(command: &CommandInteraction, ctx: &Context) -> Re
     let interaction = response.await_component_interaction(&ctx).await.ok_or(Error::Timeout)?;
     if interaction.data.custom_id == "crafting_armour_set" {
         armour_set_request(&response, interaction, gear_set, quality, ctx).await?;
+    } else if interaction.data.custom_id == "crafting_jewelry_set" {
+        jewelry_set_request(&response, interaction, gear_set, quality, ctx).await?;
     }
 
     Ok(())
