@@ -1,7 +1,6 @@
 use strum::{Display, EnumIter, EnumMessage, EnumString};
-use crate::entities::{MaterialCost};
 use crate::entities::materials::{ArmourTraitMaterials, JewelryTraitMaterials, WeaponTraitMaterials};
-use crate::entities::weapon::{OneHandedWeapons, WeaponKind};
+use crate::prelude::*;
 
 #[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
 pub enum GearTraits {
@@ -33,63 +32,52 @@ pub enum GearTraits {
     #[strum(serialize = "Decisivo")] Decisive
 }
 
-// impl GearTraits {
-//     pub fn for_piece(part: Gear) -> Vec<GearTraits> {
-//         match part {
-//             Gear::Weapon(weapon) => match weapon {
-//                 WeaponKind::OneHanded(one_handed) => match one_handed {
-//                     OneHandedWeapons::Shield => armour_traits(),
-//                     _ => weapon_traits()
-//                 }
-//                 WeaponKind::TwoHanded(_) => weapon_traits()
-//             },
-//             Gear::Armour(_) => armour_traits(),
-//             Gear::Jewelry(_) => jewelry_traits()
-//         }
-//     }
-// }
+impl GearTraits {
+    pub fn armour_cost(&self) -> Result<ArmourTraitMaterials> {
+        match *self {
+            GearTraits::Infused => Ok(ArmourTraitMaterials::Bloodstone),
+            GearTraits::Divines => Ok(ArmourTraitMaterials::Sapphire),
+            GearTraits::Invigorating => Ok(ArmourTraitMaterials::Garnet),
+            GearTraits::Impenetrable => Ok(ArmourTraitMaterials::Diamond),
+            GearTraits::Nirnhoned => Ok(ArmourTraitMaterials::FortifiedNirncrux),
+            GearTraits::Reinforced => Ok(ArmourTraitMaterials::Sardonyx),
+            GearTraits::Sturdy => Ok(ArmourTraitMaterials::Quartz),
+            GearTraits::Training => Ok(ArmourTraitMaterials::Emerald),
+            GearTraits::WellFitted => Ok(ArmourTraitMaterials::Almandine),
+            _ => Err(Error::InvalidTrait)
+        }
+    }
 
-// impl MaterialCost for GearTraits {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         match *self {
-//             GearTraits::Divines => vec![(1, ArmourTraitMaterials::Sapphire.to_string())],
-//             GearTraits::Invigorating => vec![(1, ArmourTraitMaterials::Garnet.to_string())],
-//             GearTraits::Impenetrable => vec![(1, ArmourTraitMaterials::Diamond.to_string())],
-//             GearTraits::Reinforced => vec![(1, ArmourTraitMaterials::Sardonyx.to_string())],
-//             GearTraits::Sturdy => vec![(1, ArmourTraitMaterials::Quartz.to_string())],
-//             GearTraits::WellFitted => vec![(1, ArmourTraitMaterials::Almandine.to_string())],
-//             GearTraits::Charged => vec![(1, WeaponTraitMaterials::Amethyst.to_string())],
-//             GearTraits::Defending => vec![(1, WeaponTraitMaterials::Turquoise.to_string())],
-//             GearTraits::Powered => vec![(1, WeaponTraitMaterials::Chysolite.to_string())],
-//             GearTraits::Infused => match kind {
-//                 Gear::Weapon(_) => vec![(1, WeaponTraitMaterials::Jade.to_string())],
-//                 Gear::Armour(_) => vec![(1, ArmourTraitMaterials::Bloodstone.to_string())],
-//                 Gear::Jewelry(_) => vec![(1, JewelryTraitMaterials::AurbicAmber.to_string())],
-//             }
-//             GearTraits::Nirnhoned => if let Gear::Weapon(_) = kind {
-//                 vec![(1, WeaponTraitMaterials::PotentNirncrux.to_string())]
-//             } else {
-//                 vec![(1, ArmourTraitMaterials::FortifiedNirncrux.to_string())]
-//             }
-//             GearTraits::Precise => vec![(1, WeaponTraitMaterials::Ruby.to_string())],
-//             GearTraits::Sharpened => vec![(1, WeaponTraitMaterials::FireOpal.to_string())],
-//             GearTraits::Training => if let Gear::Weapon(_) = kind {
-//                 vec![(1, WeaponTraitMaterials::Carnelian.to_string())]
-//             } else {
-//                 vec![(1, ArmourTraitMaterials::Emerald.to_string())]
-//             }
-//             GearTraits::Decisive => vec![(1, WeaponTraitMaterials::Citrine.to_string())],
-//             GearTraits::Arcane => vec![(1, JewelryTraitMaterials::Cobalt.to_string())],
-//             GearTraits::Bloodthirsty => vec![(1, JewelryTraitMaterials::Slaughterstone.to_string())],
-//             GearTraits::Harmony => vec![(1, JewelryTraitMaterials::Dibellium.to_string())],
-//             GearTraits::Healthy => vec![(1, JewelryTraitMaterials::Antimony.to_string())],
-//             GearTraits::Protective => vec![(1, JewelryTraitMaterials::Titanium.to_string())],
-//             GearTraits::Robust => vec![(1, JewelryTraitMaterials::Zinc.to_string())],
-//             GearTraits::Swift => vec![(1, JewelryTraitMaterials::GildingWax.to_string())],
-//             GearTraits::Triune => vec![(1, JewelryTraitMaterials::DawnPrism.to_string())],
-//         }
-//     }
-// }
+    pub fn weapon_cost(&self) -> Result<WeaponTraitMaterials> {
+        match *self {
+            GearTraits::Charged => Ok(WeaponTraitMaterials::Amethyst),
+            GearTraits::Defending => Ok(WeaponTraitMaterials::Turquoise),
+            GearTraits::Powered => Ok(WeaponTraitMaterials::Chysolite),
+            GearTraits::Infused => Ok(WeaponTraitMaterials::Jade),
+            GearTraits::Nirnhoned => Ok(WeaponTraitMaterials::PotentNirncrux),
+            GearTraits::Precise => Ok(WeaponTraitMaterials::Ruby),
+            GearTraits::Sharpened => Ok(WeaponTraitMaterials::FireOpal),
+            GearTraits::Training => Ok(WeaponTraitMaterials::Carnelian),
+            GearTraits::Decisive => Ok(WeaponTraitMaterials::Citrine),
+            _ => Err(Error::InvalidTrait)
+        }
+    }
+
+    pub fn jewelry_cost(&self) -> Result<JewelryTraitMaterials> {
+        match *self {
+            GearTraits::Infused => Ok(JewelryTraitMaterials::AurbicAmber),
+            GearTraits::Arcane => Ok(JewelryTraitMaterials::Cobalt),
+            GearTraits::Bloodthirsty => Ok(JewelryTraitMaterials::Slaughterstone),
+            GearTraits::Harmony => Ok(JewelryTraitMaterials::Dibellium),
+            GearTraits::Healthy => Ok(JewelryTraitMaterials::Antimony),
+            GearTraits::Protective => Ok(JewelryTraitMaterials::Titanium),
+            GearTraits::Robust => Ok(JewelryTraitMaterials::Zinc),
+            GearTraits::Swift => Ok(JewelryTraitMaterials::GildingWax),
+            GearTraits::Triune => Ok(JewelryTraitMaterials::DawnPrism),
+            _ => Err(Error::InvalidTrait)
+        }
+    }
+}
 
 pub fn armour_traits() -> Vec<GearTraits> {
     vec![

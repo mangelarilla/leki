@@ -1,7 +1,6 @@
 use strum::{Display, EnumIter, EnumMessage, EnumString};
-use std::string::ToString;
-use crate::entities::{GearQuality, get_enchantment_quality_cost, MaterialCost};
-use crate::entities::materials::{EssenceRunes, JewelryQualityMaterials, JewelryTraitMaterials, PartMaterials, PotencyRunes};
+use crate::entities::{GearQuality, get_jewelry_quality_cost};
+use crate::entities::materials::{PartMaterials, QualityMaterials};
 
 #[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, EnumString, Display, EnumMessage)]
 pub enum Jewelries {
@@ -76,15 +75,23 @@ pub enum JewelryEnchantments {
     #[strum(serialize = "Glifo de regeneración prismática")]
     PrismaticRecovery
 }
-// impl MaterialCost for Jewelries {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         match *self {
-//             Jewelries::Necklace => vec![(150, PartMaterials::PlatinumOunces.to_string())],
-//             Jewelries::Ring => vec![(100, PartMaterials::PlatinumOunces.to_string())]
-//         }
-//     }
-// }
-//
+
+impl Jewelries {
+    pub fn calculate_cost(&self) -> PartMaterials {
+        match *self {
+            Jewelries::Necklace => PartMaterials::PlatinumOunces(150),
+            Jewelries::Ring => PartMaterials::PlatinumOunces(100)
+        }
+    }
+
+    pub fn calculate_quality_cost(&self, quality: &GearQuality) -> Vec<QualityMaterials> {
+        get_jewelry_quality_cost(quality)
+            .into_iter()
+            .map(|c| QualityMaterials::Jewelry(c))
+            .collect()
+    }
+}
+
 // impl MaterialCost for JewelryEnchantments {
 //     fn cost(&self) -> Vec<(i32, String)> {
 //         match *self {
@@ -109,34 +116,5 @@ pub enum JewelryEnchantments {
 //             JewelryEnchantments::ReduceSkillCost => vec![(1, PotencyRunes::Itade.to_string()), (1, EssenceRunes::Indeko.to_string())],
 //             JewelryEnchantments::PrismaticRecovery => vec![(1, PotencyRunes::Repora.to_string()), (1, EssenceRunes::Indeko.to_string())],
 //         }
-//     }
-// }
-//
-// impl MaterialCost for Jewelry {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         let mut vec = Vec::new();
-//         vec.append(&mut self.kind.cost());
-//         vec.append(&mut self.jewelry_trait.cost());
-//         if let Some(e) = &self.enchantment {
-//             vec.append(&mut e.cost());
-//             vec.append(&mut get_enchantment_quality_cost(&self.quality));
-//         }
-//         vec.append(&mut match self.quality {
-//             GearQuality::White => vec![],
-//             GearQuality::Green => vec![(1, JewelryQualityMaterials::TernePlating.to_string())],
-//             GearQuality::Blue => vec![
-//                 (1, JewelryQualityMaterials::TernePlating.to_string()),
-//                 (2, JewelryQualityMaterials::IridiumPlating.to_string())],
-//             GearQuality::Purple => vec![
-//                 (1, JewelryQualityMaterials::TernePlating.to_string()),
-//                 (2, JewelryQualityMaterials::IridiumPlating.to_string()),
-//                 (3, JewelryQualityMaterials::ZirconPlating.to_string())],
-//             GearQuality::Yellow => vec![
-//                 (1, JewelryQualityMaterials::TernePlating.to_string()),
-//                 (2, JewelryQualityMaterials::IridiumPlating.to_string()),
-//                 (3, JewelryQualityMaterials::ZirconPlating.to_string()),
-//                 (4, JewelryQualityMaterials::ChromiumPlating.to_string())],
-//         });
-//         vec
 //     }
 // }

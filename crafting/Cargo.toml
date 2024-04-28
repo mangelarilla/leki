@@ -10,5 +10,5 @@ serenity = { version = "0.12.1", default-features = false, features = ["client",
 unidecode = "0.3.0"
 tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
-anyhow = "1.0"
 thiserror = "1.0"
+derivative = "2.2.0"

@@ -5,5 +5,7 @@ pub enum Error {
     #[error(transparent)]
     Serenity(#[from] serenity::prelude::SerenityError),
     #[error("Interaction Timeout")]
-    Timeout
+    Timeout,
+    #[error("InvalidTrait")]
+    InvalidTrait
 }

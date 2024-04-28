@@ -1,60 +1,37 @@
-use std::fmt::{Display, Formatter};
-use strum::{Display, EnumIter, EnumMessage, EnumString};
-use std::string::ToString;
-use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_enchantment_quality_cost, get_woodworking_quality_cost, MaterialCost};
-use crate::entities::materials::{EssenceRunes, PartMaterials, PotencyRunes, WeaponTraitMaterials};
+use serenity::all::CreateSelectMenuOption;
+use strum::{Display, EnumIter, EnumMessage, EnumString, IntoEnumIterator};
+use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_woodworking_quality_cost};
+use crate::entities::materials::{PartMaterials, QualityMaterials};
+use crate::entities::weapon::Weapons::*;
 
 #[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
-pub enum OneHandedWeapons {
-    /// A una mano
-    #[strum(serialize = "Maza")]
-    Mace,
-    /// A una mano
-    #[strum(serialize = "Daga")]
-    Dagger,
-    /// A una mano
-    #[strum(serialize = "Espada")]
-    Sword,
-    /// A una mano
-    #[strum(serialize = "Hacha")]
-    Axe,
-    /// A una mano
+pub enum Weapons {
+    #[strum(serialize = "(1 Mano) Maza")]
+    OneHandedMace,
+    #[strum(serialize = "(1 Mano) Daga")]
+    OneHandedDagger,
+    #[strum(serialize = "(1 Mano) Espada")]
+    OneHandedSword,
+    #[strum(serialize = "(1 Mano) Hacha")]
+    OneHandedAxe,
     #[strum(serialize = "Escudo")]
-    Shield
-}
-
-#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
-pub enum TwoHandedWeapons {
-    /// A dos manos
-    #[strum(serialize = "Mazo")]
-    Mace,
-    /// A dos manos
-    #[strum(serialize = "Mandoble")]
-    Sword,
-    /// A dos manos
-    #[strum(serialize = "Hacha de combate")]
-    Axe,
-    /// A dos manos
+    OneHandedShield,
+    #[strum(serialize = "(2 Manos) Mazo")]
+    TwoHandedMace,
+    #[strum(serialize = "(2 Manos) Mandoble")]
+    TwoHandedSword,
+    #[strum(serialize = "(2 Manos) Hacha de combate")]
+    TwoHandedAxe,
     #[strum(serialize = "Bastón glacial")]
-    FrostStaff,
-    /// A dos manos
+    TwoHandedFrostStaff,
     #[strum(serialize = "Bastón infernal")]
-    FireStaff,
-    /// A dos manos
+    TwoHandedFireStaff,
     #[strum(serialize = "Bastón eléctrico")]
-    LightningStaff,
-    /// A dos manos
+    TwoHandedLightningStaff,
     #[strum(serialize = "Bastón de restauración")]
-    RestorationStaff,
-    /// A dos manos
+    TwoHandedRestorationStaff,
     #[strum(serialize = "Arco")]
-    Bow
-}
-
-#[derive(Clone, Ord, PartialOrd, Eq, PartialEq, EnumMessage)]
-pub enum WeaponKind {
-    OneHanded(OneHandedWeapons),
-    TwoHanded(TwoHandedWeapons)
+    TwoHandedBow
 }
 
 #[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
@@ -103,59 +80,46 @@ pub enum WeaponEnchantments {
     PrismaticOnslaught
 }
 
-impl std::str::FromStr for WeaponKind {
-    type Err = strum::ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(w) = OneHandedWeapons::from_str(s) {
-            Ok(WeaponKind::OneHanded(w))
-        } else if let Ok(w) = TwoHandedWeapons::from_str(s) {
-            Ok(WeaponKind::TwoHanded(w))
-        } else {
-            Err(strum::ParseError::VariantNotFound)
-        }
+impl Weapons {
+    pub fn select_options() -> Vec<CreateSelectMenuOption> {
+        Weapons::iter()
+            .map(|i| if i.to_string().starts_with("(1 Mano)") {
+                vec![
+                    CreateSelectMenuOption::new(i.to_string(), format!("{}_1", i.to_string())),
+                    CreateSelectMenuOption::new(i.to_string(), format!("{}_2", i.to_string()))
+                ]
+            } else {
+                vec![CreateSelectMenuOption::new(i.to_string(), i.to_string())]
+            })
+            .flatten()
+            .collect()
     }
-}
 
-impl Display for WeaponKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    pub fn calculate_cost(&self) -> PartMaterials {
         match self {
-            WeaponKind::OneHanded(w) => write!(f, "{}", w),
-            WeaponKind::TwoHanded(w) => write!(f, "{}", w),
+            OneHandedDagger => PartMaterials::RubediteIngots(100),
+            OneHandedShield => PartMaterials::SandedRubyAsh(140),
+            OneHandedAxe | OneHandedMace | OneHandedSword => PartMaterials::RubediteIngots(110),
+            TwoHandedFrostStaff | TwoHandedFireStaff | TwoHandedLightningStaff |
+            TwoHandedRestorationStaff | TwoHandedBow => PartMaterials::SandedRubyAsh(120),
+            _ => PartMaterials::RubediteIngots(140)
+        }
+    }
+
+    pub fn calculate_quality_cost(&self, quality: &GearQuality) -> Vec<QualityMaterials> {
+        match *self {
+            TwoHandedFrostStaff | TwoHandedFireStaff | TwoHandedLightningStaff |
+            TwoHandedRestorationStaff | TwoHandedBow => get_woodworking_quality_cost(quality)
+                .into_iter()
+                .map(|c| QualityMaterials::Woodworking(c))
+                .collect(),
+            _ => get_blacksmith_quality_cost(quality)
+                .into_iter()
+                .map(|c| QualityMaterials::Blacksmith(c))
+                .collect()
         }
     }
 }
-
-// impl MaterialCost for OneHandedWeapons {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         match *self {
-//             OneHandedWeapons::Dagger => vec![(100, PartMaterials::RubediteIngots.to_string())],
-//             OneHandedWeapons::Shield => vec![(140, PartMaterials::SandedRubyAsh.to_string())],
-//             _ => vec![(110, PartMaterials::RubediteIngots.to_string())],
-//         }
-//     }
-// }
-//
-// impl MaterialCost for TwoHandedWeapons {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         match *self {
-//             TwoHandedWeapons::Bow |
-//             TwoHandedWeapons::FireStaff |
-//             TwoHandedWeapons::LightningStaff |
-//             TwoHandedWeapons::RestorationStaff => vec![(120, PartMaterials::SandedRubyAsh.to_string())],
-//             _ => vec![(140, PartMaterials::RubediteIngots.to_string())]
-//         }
-//     }
-// }
-
-// impl MaterialCost for WeaponKind {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         match self {
-//             WeaponKind::OneHanded(w) => w.cost(),
-//             WeaponKind::TwoHanded(w) => w.cost()
-//         }
-//     }
-// }
 
 // impl MaterialCost for WeaponEnchantments {
 //     fn cost(&self) -> Vec<(i32, String)> {
@@ -175,32 +139,5 @@ impl Display for WeaponKind {
 //             WeaponEnchantments::Crushing => vec![(1, PotencyRunes::Itade.to_string()), (1, EssenceRunes::Deteri.to_string())],
 //             WeaponEnchantments::PrismaticOnslaught => vec![(1, PotencyRunes::Itade.to_string()), (1, EssenceRunes::Hakeijo.to_string())],
 //         }
-//     }
-// }
-
-fn get_quality_mats(weapon: &WeaponKind, quality: &GearQuality) -> Vec<(i32, String)> {
-    match weapon {
-        WeaponKind::OneHanded(w) => match w {
-            OneHandedWeapons::Shield => get_woodworking_quality_cost(quality),
-            _ => get_blacksmith_quality_cost(quality)
-        }
-        WeaponKind::TwoHanded(w) => match w {
-            TwoHandedWeapons::Mace | TwoHandedWeapons::Sword | TwoHandedWeapons::Axe => get_blacksmith_quality_cost(quality),
-            _ => get_woodworking_quality_cost(quality)
-        }
-    }
-}
-
-// impl MaterialCost for Weapon {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         let mut vec = Vec::new();
-//         vec.append(&mut self.kind.cost());
-//         vec.append(&mut self.weapon_trait.cost());
-//         if let Some(e) = &self.enchantment {
-//             vec.append(&mut e.cost());
-//             vec.append(&mut get_enchantment_quality_cost(&self.quality));
-//         }
-//         vec.append(&mut get_quality_mats(&self.kind, &self.quality));
-//         vec
 //     }
 // }

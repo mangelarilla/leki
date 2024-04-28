@@ -1,15 +1,13 @@
 pub mod armor;
 pub mod jewelry;
+pub mod weapons;
+pub mod request;
 
 use std::fmt::{Display, Formatter};
 use serenity::all::{AutocompleteChoice, ComponentInteraction, Context, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, Message, ReactionType};
-use serenity::builder::CreateEmbed;
 use strum::{EnumProperty, IntoEnumIterator};
-use crate::entities::{GearQuality, MaterialCost};
-use crate::entities::armour::ArmourParts;
-use crate::entities::jewelry::Jewelries;
+use crate::entities::{GearQuality};
 use crate::entities::traits::GearTraits;
-use crate::entities::weapon::WeaponKind;
 use crate::prelude::{enum_list_to_options, Error, get_selected_gear};
 
 pub struct GearPiece<T: Display> {
@@ -17,54 +15,10 @@ pub struct GearPiece<T: Display> {
     pub gear_trait: GearTraits
 }
 
-struct GearRequest {
-    set: GearSet,
-    quality: GearQuality,
-    armour: Vec<GearPiece<ArmourParts>>,
-    weapons: Vec<GearPiece<WeaponKind>>,
-    jewelries: Vec<GearPiece<Jewelries>>
-}
-
 #[derive(Debug)]
 pub struct GearSet {
     name: String,
     name_es: String,
-}
-
-pub trait SetEmbed {
-    fn for_set(&self, set: &GearSet) -> Self;
-    fn with_quality(&self, quality: &GearQuality) -> Self;
-    fn with_gear<T: Display>(&self, label: &str, parts: &Vec<GearPiece<T>>) -> Self;
-}
-
-impl SetEmbed for CreateEmbed {
-    fn for_set(&self, gear_set: &GearSet) -> Self {
-        self.clone()
-            .title(format!("Set: {gear_set}"))
-            .description("Configura la peticion de equipo")
-    }
-
-    fn with_quality(&self, quality: &GearQuality) -> Self {
-        self.clone()
-            .field(
-                "Calidad del set",
-                format!("{} {}", quality.get_str("Emoji").unwrap(), quality.to_string()),
-                false
-            )
-    }
-
-    fn with_gear<T: Display>(&self, label: &str, parts: &Vec<GearPiece<T>>) -> Self {
-        self.clone()
-            .field(
-                label,
-                parts
-                    .iter()
-                    .map(|p| p.to_string())
-                    .collect::<Vec<String>>()
-                    .join("\n"),
-                false
-            )
-    }
 }
 
 impl<T: Display> Display for GearPiece<T> {

@@ -1,13 +1,11 @@
-use serenity::all::{ButtonStyle, ComponentInteraction, Context, CreateButton, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, CreateSelectMenuOption, Message};
+use serenity::all::{ComponentInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenuKind, CreateSelectMenuOption, Message};
 use serenity::builder::{CreateSelectMenu};
-use serenity::futures::StreamExt;
-use crate::entities::GearQuality;
 use crate::entities::jewelry::Jewelries;
 use crate::entities::traits::jewelry_traits;
 use crate::prelude::*;
-use crate::sets::{GearPiece, GearSet, SetEmbed};
+use crate::sets::{GearPiece};
 
-pub async fn jewelry_set_request(message: &Message, interaction: ComponentInteraction, gear_set: GearSet, quality: GearQuality, ctx: &Context) -> Result<()> {
+pub async fn jewelry_set_request(message: &Message, interaction: ComponentInteraction, ctx: &Context) -> Result<(ComponentInteraction, Vec<GearPiece<Jewelries>>)> {
     let jewelry_parts = CreateSelectMenuKind::String {options: vec![
         CreateSelectMenuOption::new(Jewelries::Necklace.to_string(), Jewelries::Necklace.to_string()),
         CreateSelectMenuOption::new(Jewelries::Ring.to_string(), format!("{}_1", Jewelries::Ring.to_string())),
@@ -18,7 +16,7 @@ pub async fn jewelry_set_request(message: &Message, interaction: ComponentIntera
         CreateInteractionResponseMessage::new()
             .select_menu(
                 CreateSelectMenu::new("crafting_jewelries", jewelry_parts)
-                    .placeholder("Selecciona todas la joyeria que quieres pedir")
+                    .placeholder("Selecciona toda la joyeria que quieres pedir")
                     .max_values(3)
             )
     )).await?;
@@ -32,15 +30,5 @@ pub async fn jewelry_set_request(message: &Message, interaction: ComponentIntera
         parts.push(GearPiece {part: selected_part.clone(), gear_trait: selected_trait});
     }
 
-    interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(
-        CreateInteractionResponseMessage::new()
-            .button(CreateButton::new("crafting_confirmation").label("Confirmar").style(ButtonStyle::Success))
-            .embed(CreateEmbed::new()
-                .for_set(&gear_set)
-                .with_quality(&quality)
-                .with_gear("Joyeria", &parts)
-            )
-    )).await?;
-
-    Ok(())
+    Ok((interaction, parts))
 }

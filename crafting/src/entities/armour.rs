@@ -1,7 +1,7 @@
-use std::string::ToString;
 use strum::{Display, EnumIter, EnumMessage, EnumString};
-use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_tailoring_quality_cost, MaterialCost};
-use crate::entities::materials::{ArmourTraitMaterials, EssenceRunes, PartMaterials, PotencyRunes};
+use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_tailoring_quality_cost};
+use crate::entities::armour::ArmourParts::*;
+use crate::entities::materials::{PartMaterials, QualityMaterials};
 
 #[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
 pub enum ArmourParts {
@@ -78,47 +78,30 @@ pub enum ArmourEnchantments {
 //     }
 // }
 
-fn get_quality_mats(part: &ArmourParts, quality: &GearQuality) -> Vec<(i32, String)> {
-    match part {
-        ArmourParts::HeavyFeet | ArmourParts::HeavyHands | ArmourParts::HeavyBody | ArmourParts::HeavyHead |
-        ArmourParts::HeavyLegs | ArmourParts::HeavyShoulder | ArmourParts::HeavyWaist => get_blacksmith_quality_cost(quality),
-        _ => get_tailoring_quality_cost(quality)
+impl ArmourParts {
+    pub fn calculate_cost(&self) -> PartMaterials {
+        match self {
+            LightHead | LightShoulder | LightHands | LightWaist| LightFeet => PartMaterials::AncestorSilk(130),
+            LightBody => PartMaterials::AncestorSilk(150),
+            LightLegs => PartMaterials::AncestorSilk(140),
+
+            MediumHead | MediumShoulder | MediumHands | MediumWaist| MediumFeet => PartMaterials::RubedoLeather(130),
+            MediumBody => PartMaterials::RubedoLeather(150),
+            MediumLegs => PartMaterials::RubedoLeather(140),
+
+            HeavyHead | HeavyShoulder | HeavyHands | HeavyWaist | HeavyFeet => PartMaterials::RubediteIngots(130),
+            HeavyBody => PartMaterials::RubediteIngots(150),
+            HeavyLegs => PartMaterials::RubediteIngots(140),
+        }
+    }
+
+    pub fn calculate_quality_cost(&self, quality: &GearQuality) -> Vec<QualityMaterials> {
+        match self {
+            HeavyFeet | HeavyHands | HeavyBody | HeavyHead |
+            HeavyLegs | HeavyShoulder | HeavyWaist => get_blacksmith_quality_cost(quality)
+                .into_iter().map(|b| QualityMaterials::Blacksmith(b)).collect(),
+            _ => get_tailoring_quality_cost(quality)
+                .into_iter().map(|b| QualityMaterials::Tailoring(b)).collect()
+        }
     }
 }
-
-fn get_part_mats(part: &ArmourParts) -> Vec<(i32, String)> {
-    match part {
-        ArmourParts::LightHead => vec![(130, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightShoulder => vec![(130, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightBody => vec![(150, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightHands => vec![(130, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightWaist => vec![(130, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightLegs => vec![(140, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::LightFeet => vec![(130, PartMaterials::AncestorSilk.to_string())],
-        ArmourParts::MediumHead => vec![(130, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumShoulder => vec![(130, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumBody => vec![(150, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumHands => vec![(130, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumWaist => vec![(130, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumLegs => vec![(140, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::MediumFeet => vec![(130, PartMaterials::RubedoLeather.to_string())],
-        ArmourParts::HeavyHead => vec![(130, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyShoulder => vec![(130, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyBody => vec![(150, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyHands => vec![(130, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyWaist => vec![(130, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyLegs => vec![(140, PartMaterials::RubediteIngots.to_string())],
-        ArmourParts::HeavyFeet => vec![(130, PartMaterials::RubediteIngots.to_string())],
-    }
-}
-
-// impl MaterialCost for Armour {
-//     fn cost(&self) -> Vec<(i32, String)> {
-//         let mut vec = Vec::new();
-//         vec.append(&mut get_part_mats(&self.kind));
-//         vec.append(&mut self.armour_trait.cost());
-//
-//         vec.append(&mut get_quality_mats(&self.kind, &self.quality));
-//         vec
-//     }
-// }
