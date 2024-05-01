@@ -12,6 +12,6 @@ tracing = "0.1.40"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "1.0"
 derivative = "2.2.0"
-sqlx = { version = "0.7", features = ["macros", "bigdecimal", "time"] }
+sqlx = { version = "0.7", features = ["macros", "bigdecimal", "time", "postgres", "runtime-async-std"] }
 serde_json = "1.0"
 serde = { version = "1.0.199", features = ["derive"] }
