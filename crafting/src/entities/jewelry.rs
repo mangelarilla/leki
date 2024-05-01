@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumMessage, EnumString};
 use crate::entities::{GearQuality, get_jewelry_quality_cost};
 use crate::entities::materials::{PartMaterials, QualityMaterials};
 
-#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, EnumString, Display, EnumMessage)]
+#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, EnumString, Display, EnumMessage, Serialize, Deserialize)]
 pub enum Jewelries {
     /// Solo uno
     #[strum(serialize = "Collar")]

@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumMessage, EnumString};
 use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_tailoring_quality_cost};
 use crate::entities::armour::ArmourParts::*;
 use crate::entities::materials::{PartMaterials, QualityMaterials};
 
-#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
+#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage, Serialize, Deserialize)]
 pub enum ArmourParts {
     #[strum(serialize = "(Ligera) Cabeza")]
     LightHead,

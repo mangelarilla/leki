@@ -6,6 +6,7 @@ use regex::Regex;
 use serenity::all::{ChannelId, CreateMessage, GuildId, Mention, MessageId, UserId};
 use serenity::builder::CreateEmbed;
 use serenity::client::Context;
+use sqlx::PgPool;
 use tokio::task::JoinHandle;
 use tracing::{event, Instrument, instrument, Level, trace_span};
 use crate::events::{EventRole, Player};
@@ -15,9 +16,10 @@ lazy_static! {
     static ref HASHMAP: Mutex<HashMap<ChannelId, JoinHandle<()>>> = Mutex::new(HashMap::new());
 }
 
-pub async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store: Arc<Store>) {
+pub async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, pool: PgPool) {
     let span = trace_span!("ready_reminders");
     async move {
+        let store = Arc::new(Store::new(pool));
         let events = guild.scheduled_events(&ctx.http, false).await.unwrap();
         for event in events {
             if event.creator_id.unwrap() == UserId::new(1148032756899643412) {
@@ -37,7 +39,7 @@ pub async fn reset_all_reminders(ctx: Arc<Context>, guild: GuildId, store: Arc<S
 pub fn set_reminder(date: DateTime<Utc>, ctx: Arc<Context>, channel: ChannelId, message: MessageId, store: Arc<Store>) {
     unset_reminder(&channel);
     let handle = tokio::spawn(async move {
-        let duration = date - chrono::offset::Utc::now() - Duration::try_minutes(30).unwrap();
+        let duration = date - Utc::now() - Duration::try_minutes(30).unwrap();
         event!(Level::TRACE, "{} minutes left", duration.num_minutes());
         if duration.num_minutes() > 0 {
             tokio::time::sleep(duration.to_std().unwrap()).await;

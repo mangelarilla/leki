@@ -1,7 +1,6 @@
 mod commands;
 
 use std::sync::Arc;
-use anyhow::anyhow;
 use serenity::async_trait;
 use serenity::model::gateway::Ready;
 use serenity::model::id::{GuildId};
@@ -10,12 +9,11 @@ use serenity::prelude::*;
 use shuttle_runtime::SecretStore;
 use tracing::{error, info};
 use sqlx::PgPool;
-use events::store::Store;
 use crate::commands::register_commands;
 
 struct Bot {
     guild: GuildId,
-    store: Store,
+    pool: PgPool,
     announcement_hook: String
 }
 
@@ -26,31 +24,19 @@ async fn serenity(
 ) -> shuttle_serenity::ShuttleSerenity {
     sqlx::migrate!().run(&pool).await.expect("Migrations failed :(");
 
-    let token = if let Some(token) = secret_store.get("DISCORD_TOKEN") {
-        token
-    } else {
-        return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
-    };
-
-    let guild = if let Some(guild) = secret_store.get("DISCORD_GUILD") {
-        match guild.parse::<u64>() {
-            Ok(id) => GuildId::new(id),
-            Err(e) => return Err(anyhow!("{}", e).into())
-        }
-    } else {
-        return Err(anyhow!("'DISCORD_GUILD' was not found").into());
-    };
-
-    let announcement_hook = if let Some(url) = secret_store.get("DISCORD_ANNOUNCEMENTS_HOOK") {
-        url
-    } else {
-        return Err(anyhow!("'DISCORD_TOKEN' was not found").into());
-    };
+    let token = secret_store.get("DISCORD_TOKEN")
+        .expect("'DISCORD_TOKEN' was not found");
+    let guild = secret_store.get("DISCORD_GUILD")
+        .map(|guild| guild.parse::<u64>().expect("DISCORD_GUILD invalid u64"))
+        .map(|id| GuildId::new(id))
+        .expect("'DISCORD_GUILD' was not found");
+    let announcement_hook = secret_store.get("DISCORD_ANNOUNCEMENTS_HOOK")
+        .expect("'DISCORD_TOKEN' was not found");
 
     let intents = GatewayIntents::DIRECT_MESSAGES | GatewayIntents::GUILD_SCHEDULED_EVENTS;
 
     let client = Client::builder(&token, intents)
-        .event_handler(Bot { guild, store: Store::new(pool), announcement_hook })
+        .event_handler(Bot { guild, pool, announcement_hook })
         .await
         .expect("Err creating client");
 
@@ -75,7 +61,7 @@ impl EventHandler for Bot {
         register_commands(&ctx, self.guild).await;
         crafting::register_commands(self.guild, &ctx).await;
 
-        events::tasks::reset_all_reminders(Arc::new(ctx), self.guild, Arc::new(self.store.clone())).await;
+        events::tasks::reset_all_reminders(Arc::new(ctx), self.guild, self.pool.clone()).await;
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -87,19 +73,19 @@ impl EventHandler for Bot {
             Interaction::Command(command) => {
                 info!("Command interaction: {}", command.data.name);
                 if command.data.name == "events" {
-                    if let Err(why) = events::messages::events::create_event(&command, &ctx, &self.store, &self.announcement_hook).await {
+                    if let Err(why) = events::messages::events::create_event(&command, &ctx, self.pool.clone(), &self.announcement_hook).await {
                         error!("Create event: {why:#?}");
                     }
                 }
 
                 if command.data.name == "Edit event" {
-                    if let Err(why) = events::messages::events::edit_event(&command, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::edit_event(&command, &ctx, self.pool.clone()).await {
                         error!("Edit event: {why:#?}");
                     }
                 }
 
                 if command.data.name == "Delete event" {
-                    if let Err(why) = events::messages::events::delete_event(&command, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::delete_event(&command, &ctx, self.pool.clone()).await {
                         error!("Edit event: {why:#?}");
                     }
                 }
@@ -114,7 +100,7 @@ impl EventHandler for Bot {
                 info!("Component interaction: {}", component.data.custom_id);
 
                 if component.data.custom_id.starts_with("signup") {
-                    if let Err(why) = events::messages::events::signup_event(&component, &ctx, &self.store).await {
+                    if let Err(why) = events::messages::events::signup_event(&component, &ctx, self.pool.clone()).await {
                         error!("Signup event: {why:#?}");
                     }
                 }

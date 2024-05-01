@@ -339,7 +339,10 @@ name = "crafting"
 version = "0.1.0"
 dependencies = [
  "derivative",
+ "serde",
+ "serde_json",
  "serenity",
+ "sqlx",
  "strum 0.26.2",
  "thiserror",
  "tracing",
@@ -1101,26 +1104,14 @@ dependencies = [
 name = "leki"
 version = "1.3.3"
 dependencies = [
- "anyhow",
- "chrono",
  "crafting",
- "duration-string",
  "events",
- "lazy_static",
- "log",
- "rand",
- "regex",
- "serde",
  "serenity",
  "shuttle-runtime",
  "shuttle-serenity",
  "shuttle-shared-db",
  "sqlx",
- "strum 0.26.2",
- "thiserror",
- "tokio",
  "tracing",
- "unidecode",
 ]
 
 [[package]]

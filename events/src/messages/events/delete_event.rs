@@ -1,11 +1,13 @@
 use std::time::Duration;
 use serenity::all::{ButtonStyle, ChannelId, CommandInteraction, Context, CreateInteractionResponse, CreateInteractionResponseMessage, GetMessages, Mention, Message, MessageId, MessageType, PartialChannel, ScheduledEventStatus};
 use serenity::builder::CreateButton;
+use sqlx::PgPool;
 use tracing::{instrument};
 use crate::prelude::*;
 
 #[instrument]
-pub async fn delete_event(interaction: &CommandInteraction, ctx: &Context, store: &Store) -> Result<()> {
+pub async fn delete_event(interaction: &CommandInteraction, ctx: &Context, pool: PgPool) -> Result<()> {
+    let store = Store::new(pool);
     let message = interaction.data.resolved.messages.values().next().unwrap();
     if let Ok(event) = store.get_event(message.id).await {
         if let Some(id) = event.scheduled_event {
@@ -28,16 +30,16 @@ Estas bien {}?? Quieres hablar??
                 let response = interaction.get_response(&ctx.http).await?;
                 if let Some(interaction) = response.await_component_interaction(&ctx.shard).timeout(Duration::from_secs(60)).await {
                     guild.delete_scheduled_event(&ctx.http, id).await?;
-                    remove_event(store, ctx, interaction.channel_id, message.id).await?;
+                    remove_event(&store, ctx, interaction.channel_id, message.id).await?;
 
                     interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(purged().embeds(vec![]))).await?;
                 }
             } else {
-                remove_event(store, ctx, interaction.channel_id, message.id).await?;
+                remove_event(&store, ctx, interaction.channel_id, message.id).await?;
                 interaction.create_response(&ctx.http, CreateInteractionResponse::Message(purged())).await?;
             }
         } else {
-            remove_event(store, ctx, interaction.channel_id, message.id).await?;
+            remove_event(&store, ctx, interaction.channel_id, message.id).await?;
             interaction.create_response(&ctx.http, CreateInteractionResponse::Message(purged())).await?;
         }
     } else if message.author.id.get() == 1148032756899643412 && is_event_channel(interaction.channel.clone().unwrap()) {

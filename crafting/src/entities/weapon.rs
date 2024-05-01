@@ -1,10 +1,11 @@
+use serde::{Deserialize, Serialize};
 use serenity::all::CreateSelectMenuOption;
 use strum::{Display, EnumIter, EnumMessage, EnumString, IntoEnumIterator};
 use crate::entities::{GearQuality, get_blacksmith_quality_cost, get_woodworking_quality_cost};
 use crate::entities::materials::{PartMaterials, QualityMaterials};
 use crate::entities::weapon::Weapons::*;
 
-#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
+#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage, Serialize, Deserialize)]
 pub enum Weapons {
     #[strum(serialize = "(1 Mano) Maza")]
     OneHandedMace,

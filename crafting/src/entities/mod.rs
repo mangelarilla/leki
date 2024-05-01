@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumProperty, EnumString};
 use crate::entities::materials::{BlacksmithQualityMaterials, JewelryQualityMaterials, RuneQualityMaterials, TailoringQualityMaterials, WoodworkingQualityMaterials};
 
@@ -7,7 +8,7 @@ pub mod jewelry;
 pub mod materials;
 pub mod traits;
 
-#[derive(EnumIter, Clone, Ord, PartialOrd, Eq, PartialEq, EnumString, Display, EnumProperty)]
+#[derive(EnumIter, Clone, Ord, PartialOrd, Eq, PartialEq, EnumString, Display, EnumProperty, Serialize, Deserialize)]
 pub enum GearQuality {
     #[strum(serialize = "Blanco")]
     #[strum(props(Emoji = "⚪"))]

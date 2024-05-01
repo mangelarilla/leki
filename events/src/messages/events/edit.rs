@@ -6,8 +6,10 @@ use serenity::all::{ButtonStyle, CommandInteraction, Context, CreateActionRow, C
 use crate::events::{Event, EventRole};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
+use sqlx::PgPool;
 
-pub async fn edit_event(interaction: &CommandInteraction, ctx: &Context, store: &Store) -> Result<()> {
+pub async fn edit_event(interaction: &CommandInteraction, ctx: &Context, pool: PgPool) -> Result<()> {
+    let store = Store::new(pool);
     let mut message = interaction.data.resolved.messages.values().next().unwrap().clone();
 
     if let Ok(mut event) = store.get_event(message.id).await {
@@ -21,7 +23,7 @@ pub async fn edit_event(interaction: &CommandInteraction, ctx: &Context, store: 
 
         while let Some(interaction) = modification.next().await {
             if let Some(role) = EventRole::from_partial_id(&interaction.data.custom_id) {
-                if let Ok(interaction) = roles::edit_role(&interaction, ctx, store, role, message.id).await {
+                if let Ok(interaction) = roles::edit_role(&interaction, ctx, &store, role, message.id).await {
                     interaction.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(edit_event_message(&event))).await?;
                 }
             }
@@ -32,13 +34,13 @@ pub async fn edit_event(interaction: &CommandInteraction, ctx: &Context, store: 
             }
 
             if interaction.data.custom_id == "edit_datetime" {
-                if let Ok(modal) =info::edit_datetime(&interaction, ctx, store, &event, message.id).await {
+                if let Ok(modal) =info::edit_datetime(&interaction, ctx, &store, &event, message.id).await {
                     modal.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(edit_event_message(&event))).await?;
                 }
             }
 
             if interaction.data.custom_id == "edit_info" {
-                let modal = info::edit_info(&interaction, ctx, store, &event, message.id).await?;
+                let modal = info::edit_info(&interaction, ctx, &store, &event, message.id).await?;
                 modal.create_response(&ctx.http, CreateInteractionResponse::UpdateMessage(edit_event_message(&event))).await?;
             }
 

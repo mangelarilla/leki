@@ -7,5 +7,9 @@ pub enum Error {
     #[error("Interaction Timeout")]
     Timeout,
     #[error("InvalidTrait")]
-    InvalidTrait
+    InvalidTrait,
+    #[error(transparent)]
+    Postgres(#[from] sqlx::Error),
+    #[error(transparent)]
+    JsonError(#[from] serde_json::Error)
 }

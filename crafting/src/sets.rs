@@ -4,18 +4,20 @@ pub mod weapons;
 pub mod request;
 
 use std::fmt::{Display, Formatter};
+use serde::{Deserialize, Serialize};
 use serenity::all::{AutocompleteChoice, ComponentInteraction, Context, CreateButton, CreateInteractionResponse, CreateInteractionResponseMessage, CreateSelectMenu, CreateSelectMenuKind, CreateSelectMenuOption, Message, ReactionType};
 use strum::{EnumProperty, IntoEnumIterator};
 use crate::entities::{GearQuality};
 use crate::entities::traits::GearTraits;
 use crate::prelude::{enum_list_to_options, Error, get_selected_gear};
 
+#[derive(Serialize, Deserialize)]
 pub struct GearPiece<T: Display> {
     pub part: T,
     pub gear_trait: GearTraits
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GearSet {
     name: String,
     name_es: String,

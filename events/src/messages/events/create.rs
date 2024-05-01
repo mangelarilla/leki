@@ -7,11 +7,14 @@ mod role;
 
 use std::sync::Arc;
 use serenity::all::{ChannelId, Colour, CommandInteraction, Context, CreateActionRow, CreateEmbed, CreateInteractionResponse, CreateInteractionResponseMessage, CreateMessage, CreateScheduledEvent, ExecuteWebhook, GuildId, Mention, MessageId, ScheduledEventId, ScheduledEventType, Timestamp, Webhook};
+use sqlx::PgPool;
 use crate::events::{Event, EventKind, EventRole, EventScopes};
 use crate::prelude::*;
 use crate::tasks;
 
-pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, store: &Store, announcement_hook: &str) -> Result<()> {
+pub async fn create_event(interaction: &CommandInteraction, ctx: &Context, pool: PgPool, announcement_hook: &str) -> Result<()> {
+    let store = Store::new(pool);
+
     // Choose new event kind
     let (interaction, kind, message) = kind::select_event_kind(interaction, ctx).await?;
 

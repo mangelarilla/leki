@@ -2,6 +2,7 @@ mod sets;
 mod entities;
 mod error;
 mod prelude;
+mod store;
 
 use serenity::all::{ButtonStyle, CommandInteraction, CommandOptionType, CommandType, Context, CreateAutocompleteResponse, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage, GuildId};
 use serenity::builder::{CreateButton, CreateCommand};

@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumMessage, EnumString};
 use crate::entities::materials::{ArmourTraitMaterials, JewelryTraitMaterials, WeaponTraitMaterials};
 use crate::prelude::*;
 
-#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage)]
+#[derive(Clone, EnumIter, Ord, PartialOrd, Eq, PartialEq, Display, EnumString, EnumMessage, Serialize, Deserialize)]
 pub enum GearTraits {
     #[strum(serialize = "Imbuición")] Infused,
     #[strum(serialize = "Temple de Nirn")] Nirnhoned,

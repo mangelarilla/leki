@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 use serenity::all::CreateEmbed;
 use strum::EnumProperty;
+use serde::{Deserialize, Serialize};
 use crate::entities::armour::ArmourParts;
 use crate::entities::GearQuality;
 use crate::entities::jewelry::Jewelries;
@@ -11,6 +12,7 @@ use crate::entities::weapon::Weapons;
 use crate::sets::{GearPiece, GearSet};
 use crate::prelude::*;
 
+#[derive(Serialize, Deserialize)]
 pub struct GearRequest {
     set: GearSet,
     quality: Option<GearQuality>,

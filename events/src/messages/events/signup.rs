@@ -5,9 +5,11 @@ use serenity::builder::CreateInteractionResponse;
 use crate::events::{EventKind, EventRole, Player, PlayerClass, PlayersInRole};
 use crate::prelude::*;
 use serenity::futures::StreamExt;
+use sqlx::PgPool;
 use tracing::{info, instrument};
 
-pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, store: &Store) -> Result<()> {
+pub async fn signup_event(interaction: &ComponentInteraction, ctx: &Context, pool: PgPool) -> Result<()> {
+    let store = Store::new(pool);
     if let Some(role) = EventRole::from_partial_id(&interaction.data.custom_id) {
         let mut original_message = interaction.message.clone();
         let mut event = store.get_event(interaction.message.id).await?;
